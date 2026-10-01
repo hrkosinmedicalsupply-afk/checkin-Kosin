@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Time Stamp">
+<meta name="theme-color" content="#0f766e">
+<title>Time Stamp · KOSIN</title>
+
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:-apple-system,'Segoe UI',Tahoma,sans-serif;color:#134e4a;
+       background:linear-gradient(180deg,#0f766e 0%,#115e59 100%)}
+  .wrap{max-width:440px;margin:0 auto;padding:28px 16px 40px}
+  .card{background:#fff;border-radius:26px;padding:26px 20px 30px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+  h1{margin:0;text-align:center;font-size:30px;color:#0f766e}
+  .sub{text-align:center;color:#555;font-size:15px;margin:6px 0 16px}
+  .who{text-align:center;font-size:15px;color:#555;margin-bottom:14px}
+  .who b{color:#134e4a}
+  .who a{color:#0f766e;margin-left:6px}
+  #phoneBox{display:none;margin-bottom:14px}
+  #phoneBox input{width:100%;font-size:22px;padding:12px;border:2px solid #99d5c9;border-radius:12px;text-align:center;letter-spacing:1px}
+  .status{border:2px solid #0f766e;background:#e6f4f1;border-radius:16px;padding:14px;text-align:center;margin-bottom:22px}
+  .status .main{font-size:19px;font-weight:bold}
+  .status .main big{font-size:28px}
+  .status .hint{font-size:14px;color:#2f6f68;margin-top:4px}
+  #btn{display:block;width:72%;aspect-ratio:1/1;max-width:300px;margin:0 auto;border:0;border-radius:36px;
+       background:linear-gradient(180deg,#14a993,#0e8a79);color:#fff;font-size:44px;font-weight:800;letter-spacing:3px;
+       box-shadow:0 14px 0 #0b4f47,0 22px 30px rgba(0,0,0,.25);cursor:pointer}
+  #btn:active{transform:translateY(8px);box-shadow:0 6px 0 #0b4f47,0 10px 16px rgba(0,0,0,.25)}
+  #btn:disabled{background:#9ca3af;box-shadow:0 14px 0 #6b7280}
+  .link{display:block;margin:18px auto 0;background:none;border:0;color:#0f766e;font-size:15px;text-decoration:underline}
+  #msg{margin-top:22px;padding:14px;border-radius:12px;font-size:16px;line-height:1.5;display:none}
+  .ok{background:#d1fae5;display:block!important}.warn{background:#fef3c7;display:block!important}.err{background:#fee2e2;display:block!important}
+  .hist{background:#fff;border-radius:22px;padding:18px 16px;margin-top:18px}
+  .hist h2{font-size:18px;margin:0 0 10px;color:#0f766e}
+  details{border-top:1px solid #e5e7eb;padding:10px 2px}
+  summary{font-size:16px;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+  summary::-webkit-details-marker{display:none}
+  .badge{background:#0f766e;color:#fff;border-radius:12px;padding:1px 10px;font-size:14px}
+  .item{display:flex;gap:10px;padding:8px 0 0;font-size:15px}
+  .item .t{font-weight:bold;min-width:48px}
+  .item .p{color:#444;flex:1}
+  .muted{color:#888;font-size:13px}
+  .foot{text-align:center;color:rgba(255,255,255,.6);font-size:12px;margin-top:18px}
+  .pin{display:none;margin:-6px 0 16px;background:#fff7ed;border:2px dashed #f59e0b;border-radius:14px;padding:12px;text-align:center;font-size:15px;line-height:1.5}
+  .pin a{display:inline-block;margin-top:8px;background:#f59e0b;color:#fff;font-weight:bold;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:17px}
+</style></head><body><div class="wrap">
+  <div class="card">
+    <h1>Time Stamp</h1>
+    <div class="sub">กดปุ่มด้านล่างเพื่อบันทึกเวลา (ระบบจะขอตำแหน่งของคุณ)</div>
+    <div class="who" id="who"></div>
+    <div id="phoneBox"><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="ใส่เบอร์โทร 10 หลัก"></div>
+    <div class="pin" id="pin"></div>
+    <div class="status" id="status"><div class="main">กำลังโหลด...</div></div>
+    <button id="btn" onclick="go()">SEND</button>
+    <button id="nogps" class="link" style="display:none" onclick="send(null)">ส่งแบบไม่มีพิกัด (ไม่แนะนำ)</button>
+    <div id="msg"></div>
+  </div>
+  <div class="hist" id="hist"></div>
+  <div class="foot">KOSIN · HR-1.0</div>
+</div>
+<script>
+  var API = 'https://script.google.com/macros/s/AKfycbxCRmL8V6EJfXZPiqunDdb8vQgbwsF7FYOngL0aQNsvI79rfTCqAPI9meKCCKNYcDzf_A/exec';
+  var google = {script: {}};
+  Object.defineProperty(google.script, 'run', {get: function () {
+    var ok = function () {}, fail = function () {}, o = {
+      withSuccessHandler: function (f) { ok = f; return o; },
+      withFailureHandler: function (f) { fail = f; return o; }};
+    ['checkin', 'history'].forEach(function (n) {
+      o[n] = function () {
+        fetch(API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
+          body: JSON.stringify({action: n, args: [].slice.call(arguments)})})
+          .then(function (r) { return r.json(); })
+          .then(function (j) { if (j.ok) ok(j.result); else fail(new Error(j.error)); })
+          .catch(function () { fail(new Error('เชื่อมต่อไม่ได้ — ตรวจสัญญาณเน็ตแล้วลองใหม่')); });
+      };
+    });
+    return o;
+  }});
+</script>
+<script>
+  var LS = {get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+            set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }};
+  var phoneEl = document.getElementById('phone');
+  var PRESET = (new URLSearchParams(location.search).get('p') || LS.get('lockedPhone') || '').replace(/\D/g, ''), EXEC = location.origin + location.pathname;
+  if (PRESET) LS.set('lockedPhone', PRESET);  // เติมโดย doGet: เบอร์จากลิงก์ส่วนตัว
+  phoneEl.value = PRESET;
+  var devId = LS.get('deviceId');
+  if (!devId) { devId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0; return (c == 'x' ? r : (r & 3 | 8)).toString(16); }); LS.set('deviceId', devId); }
+
+  function el(id) { return document.getElementById(id); }
+  function msg(cls, html) { var m = el('msg'); m.className = cls; m.innerHTML = html; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+  // เบอร์ล็อกตามลิงก์ส่วนตัว (?p=) — ไม่มีช่องให้แก้ ไม่มีปุ่มเปลี่ยน
+  // ลิงก์หลัก (ไม่มี ?p=) ใช้แค่ "ลงทะเบียนครั้งแรก" → ยืนยันเบอร์ → พาไปลิงก์ส่วนตัวที่ล็อกแล้ว
+  function phone() { return PRESET || phoneEl.value.replace(/\D/g, ''); }
+
+  function showWho() {
+    if (PRESET) {
+      el('who').innerHTML = '🔒 เบอร์ <b>' + PRESET + '</b>';
+      el('phoneBox').style.display = 'none';
+      el('pin').style.display = 'none';
+      return;
+    }
+    el('who').innerHTML = '<b>ลงทะเบียนครั้งแรก</b> — ใส่เบอร์โทรของคุณ แล้วกด SEND';
+    el('phoneBox').style.display = 'block';
+  }
+
+  function askLock(ph) {
+    var pin = el('pin');
+    pin.style.display = 'block';
+    pin.innerHTML = 'ยืนยันเบอร์ <b style="font-size:22px">' + ph + '</b> ใช่ไหม?'
+      + '<br><span class="muted">เมื่อยืนยันแล้ว เบอร์นี้จะถูกล็อกไว้กับลิงก์ของคุณ แก้เองไม่ได้ (ถ้าผิด ติดต่อ HR)</span>'
+      + '<br><a href="' + EXEC + '?p=' + ph + '">🔒 ยืนยันและล็อกเบอร์</a>'
+      + '<br><span class="muted">หน้าที่เปิดขึ้นมา ให้<b>เพิ่มลงหน้าจอหลัก</b> แล้วใช้ไอคอนนั้นเช็กอินทุกวัน<br>'
+      + 'iPhone: ปุ่มแชร์ ⬆️ → เพิ่มไปยังหน้าจอโฮม · Android: ⋮ → เพิ่มลงในหน้าจอหลัก</span>';
+    msg('', '');
+  }
+
+  function device() {
+    var ua = navigator.userAgent, os = '', model = '', br = '';
+    var m = ua.match(/Android\s([\d.]+)/);
+    if (m) os = 'Android ' + m[1].split('.')[0];
+    else if (/iPhone|iPad|iPod/.test(ua)) { os = 'iOS'; model = /iPad/.test(ua) ? 'iPad' : 'iPhone'; }
+    else if (/Windows/.test(ua)) os = 'Windows'; else if (/Mac OS/.test(ua)) os = 'macOS';
+    m = ua.match(/Android[^;]*;\s*([^;)]+?)(?:\sBuild|\))/);
+    if (m && m[1] !== 'K') model = m[1];
+    br = /EdgA?\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung' : /Line\//.test(ua) ? 'LINE'
+       : /FBAN|FBAV/.test(ua) ? 'Facebook' : /CriOS|Chrome\//.test(ua) ? 'Chrome'
+       : /Firefox|FxiOS/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : '';
+    var gpu = '';
+    try { var gl = document.createElement('canvas').getContext('webgl');
+      var ext = gl.getExtension('WEBGL_debug_renderer_info');
+      gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; } catch (e) {}
+    return {os: os, model: model, browser: br, gpu: gpu, deviceId: devId,
+      screen: screen.width + '×' + screen.height + ' @' + (window.devicePixelRatio || 1),
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '', lang: navigator.language || '',
+      cpu: navigator.hardwareConcurrency || '', ram: navigator.deviceMemory || ''};
+  }
+
+  function go() {
+    var ph = phone();
+    if (!/^0\d{9}$/.test(ph)) { msg('err', 'กรุณาใส่เบอร์โทร 10 หลัก แล้วกด SEND อีกครั้ง'); phoneEl.focus(); return; }
+    if (!PRESET) { askLock(ph); return; }  // ลิงก์หลักไม่บันทึกเอง — ต้องยืนยัน/ล็อกเบอร์ก่อน
+    el('btn').disabled = true;
+    msg('warn', '⏳ กำลังหาตำแหน่ง GPS... (รอสักครู่ อย่าปิดหน้านี้)');
+    if (!navigator.geolocation) { gpsFail({code: 0}); return; }
+    navigator.geolocation.getCurrentPosition(function (p) { send(p.coords); }, gpsFail,
+      {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
+  }
+
+  function gpsFail(e) {
+    el('btn').disabled = false;
+    el('nogps').style.display = 'block';
+    var how = e.code === 1
+      ? 'มือถือ<b>ไม่อนุญาต</b>ให้หน้านี้ใช้ตำแหน่ง<br>1) เปิด <b>ตำแหน่ง/Location</b> ในมือถือ<br>2) กดรูป 🔒 หน้าลิงก์ → สิทธิ์ → <b>ตำแหน่ง: อนุญาต</b><br>3) กด SEND ใหม่'
+      : 'หาตำแหน่งไม่เจอ — ออกไปใกล้หน้าต่าง/ที่โล่ง เปิด Location และปิดโหมดประหยัดแบต แล้วกด SEND ใหม่';
+    msg('err', '⚠️ ' + how);
+  }
+
+  function send(c) {
+    var d = device();
+    d.phone = phone();
+    if (c) { d.lat = c.latitude; d.lng = c.longitude; d.acc = Math.round(c.accuracy); d.alt = c.altitude; }
+    msg('warn', '⏳ กำลังบันทึก...');
+    google.script.run.withSuccessHandler(function (r) {
+      el('nogps').style.display = 'none';
+      msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
+        + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด'));
+      setTimeout(function () { el('btn').disabled = false; }, 10000);
+      loadHistory();
+    }).withFailureHandler(function (e) {
+      el('btn').disabled = false;
+      msg('err', '❌ บันทึกไม่สำเร็จ: ' + esc(e && e.message ? e.message : e) + '<br>ลองกดใหม่อีกครั้ง');
+    }).checkin(d);
+  }
+
+  // ---- สถานะวันนี้ + ประวัติย้อนหลังรายวัน (กี่ครั้ง กี่โมง ที่ไหน) ----
+  var DOW = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  function thDate(iso) {
+    var p = iso.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
+    return DOW[d.getDay()] + ' ' + (+p[2]) + '/' + (+p[1]) + '/' + (+p[0] + 543);
+  }
+  function todayIso() {
+    var n = new Date();
+    return n.getFullYear() + '-' + ('0' + (n.getMonth() + 1)).slice(-2) + '-' + ('0' + n.getDate()).slice(-2);
+  }
+  function hm(t) { return t.slice(0, 5).replace(/^0/, ''); }
+  function items(list) {
+    return list.map(function (x) {
+      var where = x.gps ? (x.place ? '📍 ' + esc(x.place) : '📍 มีพิกัด') : '⚠️ ไม่มีพิกัด';
+      return '<div class="item"><span class="t">' + hm(x.t) + '</span><span class="p">' + where + '</span></div>';
+    }).join('');
+  }
+  function setStatus(today) {
+    var s = el('status');
+    if (!today) {
+      s.innerHTML = '<div class="main">ยังไม่ได้กดวันนี้</div><div class="hint">กดปุ่ม SEND เมื่อเข้างาน</div>';
+    } else if (today.items.length === 1) {
+      s.innerHTML = '<div class="main">✅ วันนี้กดเข้างานแล้วเมื่อ <big>' + hm(today.items[0].t) + ' น.</big></div>'
+        + '<div class="hint">ไว้ตอนเลิกงานกดอีกครั้งเพื่อบันทึกออกงาน (กดซ้ำได้ ไม่มีปัญหา)</div>';
+    } else {
+      var n = today.items.length;
+      s.innerHTML = '<div class="main">✅ วันนี้กดแล้ว <big>' + n + '</big> ครั้ง</div>'
+        + '<div class="hint">เข้างาน ' + hm(today.items[0].t) + ' น. · ล่าสุด ' + hm(today.items[n - 1].t) + ' น.</div>';
+    }
+  }
+  function loadHistory() {
+    var ph = phone();
+    if (!PRESET) {  // ลิงก์หลัก: ยังไม่ล็อกเบอร์ ยังไม่แสดงประวัติ
+      el('status').innerHTML = '<div class="main">ใส่เบอร์โทรด้านบน แล้วกด SEND เพื่อลงทะเบียน</div>';
+      el('hist').style.display = 'none';
+      return;
+    }
+    el('hist').style.display = 'block';
+    el('hist').innerHTML = '<div class="muted">⏳ กำลังโหลดประวัติ...</div>';
+    google.script.run.withSuccessHandler(function (days) {
+      var t = todayIso(), today = null;
+      days.forEach(function (x) { if (x.date === t) today = x; });
+      setStatus(today);
+      var html = '<h2>ประวัติการกด (ย้อนหลัง 31 วัน)</h2>';
+      html += days.length ? days.map(function (x) {
+        return '<details' + (x.date === t ? ' open' : '') + '><summary><span>' + (x.date === t ? 'วันนี้ · ' : '')
+          + thDate(x.date) + '</span><span class="badge">' + x.items.length + ' ครั้ง</span></summary>' + items(x.items) + '</details>';
+      }).join('') : '<div class="muted">ยังไม่มีประวัติ</div>';
+      el('hist').innerHTML = html + '<div class="muted" style="margin-top:10px">กดที่วันเพื่อดูเวลาและสถานที่</div>';
+    }).withFailureHandler(function (e) {
+      el('hist').innerHTML = '<div class="muted">โหลดประวัติไม่ได้: ' + esc(e && e.message ? e.message : e) + '</div>';
+    }).history(ph, 31, devId);
+  }
+  showWho();
+  loadHistory();
+</script></body></html>
