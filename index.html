@@ -191,7 +191,8 @@
   function items(list) {
     return list.map(function (x) {
       var where = x.gps ? (x.place ? '📍 ' + esc(x.place) : '📍 มีพิกัด') : '⚠️ ไม่มีพิกัด';
-      return '<div class="item"><span class="t">' + hm(x.t) + '</span><span class="p">' + where + '</span></div>';
+      return '<div class="item"><span class="t">' + hm(x.t) + '</span><span class="p">' + where
+        + (x.dup > 1 ? ' <span class="muted">(กดซ้ำ ' + x.dup + ' ครั้ง นับเป็น 1)</span>' : '') + '</span></div>';
     }).join('');
   }
   function setStatus(today) {
