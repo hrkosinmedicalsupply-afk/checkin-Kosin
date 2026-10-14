@@ -46,6 +46,27 @@
   .months button{flex:none;border:2px solid #0f766e;background:#fff;color:#0f766e;border-radius:16px;padding:5px 12px;font-size:14px}
   .months button.on{background:#0f766e;color:#fff;font-weight:bold}
   .sum{background:#f0fdfa;border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:14px;color:#134e4a}
+  .calh{display:flex;justify-content:center;align-items:center;gap:14px;margin-bottom:8px}
+  .calh b{font-size:22px;color:#0f766e;min-width:160px;text-align:center}
+  .calh button{border:0;background:none;font-size:30px;color:#0f766e;padding:0 12px;cursor:pointer}
+  .calh button:disabled{opacity:.2}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px;text-align:center}
+  .dw{font-size:14px;color:#555;padding:4px 0}.dw.sun{color:#dc2626}
+  .c{padding:4px 0;cursor:pointer}
+  .c span{display:inline-block;width:34px;height:34px;line-height:34px;border-radius:50%;font-size:15px}
+  .c.today span{border:2px solid #0f766e;line-height:30px}
+  .c.sel span{background:#0f766e;color:#fff;font-weight:bold}
+  .dots{height:8px;display:flex;justify-content:center;gap:3px;margin-top:1px}
+  .dots i,.legend i,.tl>i{display:inline-block;width:7px;height:7px;border-radius:50%}
+  .d-shift{background:#f9a8d4}.d-in{background:#14b8a6}.d-one{background:#fdba74}
+  .d-off{background:#93c5fd}.d-hol{background:#c084fc}.d-none{background:#e5e7eb}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:#666;margin:10px 0 8px}
+  .legend i{margin-right:4px}
+  .day{margin-top:10px;border-top:1px solid #e5e7eb;padding-top:12px}
+  .dh{font-size:20px;font-weight:bold;margin-bottom:4px}
+  .tl{display:flex;gap:12px;align-items:flex-start;padding:8px 0;font-size:15px}
+  .tl>i{width:14px;height:14px;margin-top:3px;flex:none}
+  .pl{color:#555;font-size:14px}
   .foot{text-align:center;color:rgba(255,255,255,.6);font-size:12px;margin-top:18px}
   .pin{display:none;margin:-6px 0 16px;background:#fff7ed;border:2px dashed #f59e0b;border-radius:14px;padding:12px;text-align:center;font-size:15px;line-height:1.5}
   .pin a{display:inline-block;margin-top:8px;background:#f59e0b;color:#fff;font-weight:bold;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:17px}
@@ -235,35 +256,85 @@
     }).history(ph, month);
   }
 
-  // ---- เลือกดูทีละเดือน (ย้อนหลัง 6 เดือน) ----
+  // ---- ปฏิทินรายเดือน + รายละเอียดรายวัน (แบบแอปลงเวลา) ----
+  // CAL = กะงาน/วันทำงาน/วันหยุด จาก config.json ของโปรแกรม (เติมตอนสร้างไฟล์)
+  var CAL = {"start": "08:00", "end": "17:00", "brk": "60 นาที", "workdays": [1, 2, 3, 4, 5], "hol": {"2026-01-01": "วันขึ้นปีใหม่", "2026-01-02": "วันหยุดพิเศษ", "2026-03-03": "วันมาฆบูชา", "2026-04-06": "วันจักรี", "2026-04-13": "วันสงกรานต์", "2026-04-14": "วันสงกรานต์", "2026-04-15": "วันสงกรานต์", "2026-05-01": "วันแรงงานแห่งชาติ", "2026-05-04": "วันฉัตรมงคล", "2026-06-01": "ชดเชยวันวิสาขบูชา", "2026-06-03": "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าสุทิดา", "2026-07-28": "วันเฉลิมพระชนมพรรษาพระบาทสมเด็จพระเจ้าอยู่หัว", "2026-07-29": "วันอาสาฬหบูชา", "2026-08-12": "วันแม่แห่งชาติ", "2026-10-13": "วันนวมินทรมหาราช", "2026-10-23": "วันปิยมหาราช", "2026-12-07": "วันหยุดชดเชย", "2026-12-10": "วันรัฐธรรมนูญ", "2026-12-31": "วันสิ้นปี"}};
   var MON = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  var curMonth = todayIso().slice(0, 7), selMonth = curMonth;
+  var MONF = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
+              'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  var curMonth = todayIso().slice(0, 7), selMonth = curMonth, selDay = todayIso(), lastDays = [];
   function monthLabel(ym) { return MON[+ym.slice(5, 7) - 1] + ' ' + String(+ym.slice(0, 4) + 543).slice(-2); }
   function monthBar() {
-    var y = +curMonth.slice(0, 4), m = +curMonth.slice(5, 7), out = [];
-    for (var i = 0; i < 6; i++) {
-      var ym = y + '-' + ('0' + m).slice(-2);
-      out.push('<button class="' + (ym === selMonth ? 'on' : '') + '" data-m="' + ym + '" onclick="pickMonth(this.dataset.m)">'
-        + (ym === curMonth ? 'เดือนนี้' : monthLabel(ym)) + '</button>');
-      if (--m === 0) { m = 12; y--; }
-    }
-    return '<h2>ประวัติการกด</h2><div class="months">' + out.join('') + '</div>';
+    return '<div class="calh"><button onclick="shiftMonth(-1)">‹</button><b>' + MONF[+selMonth.slice(5, 7) - 1]
+      + ' ' + (+selMonth.slice(0, 4) + 543) + '</b><button onclick="shiftMonth(1)"'
+      + (selMonth >= curMonth ? ' disabled' : '') + '>›</button></div>';
   }
-  function pickMonth(ym) { selMonth = ym; loadHistory(); }
-
+  function shiftMonth(k) {
+    var y = +selMonth.slice(0, 4), m = +selMonth.slice(5, 7) + k;
+    if (m < 1) { m = 12; y--; }
+    if (m > 12) { m = 1; y++; }
+    selMonth = y + '-' + ('0' + m).slice(-2);
+    selDay = selMonth === curMonth ? todayIso() : selMonth + '-01';
+    loadHistory();
+  }
+  function dayType(iso) {
+    if (CAL.hol[iso]) return 'hol';
+    var d = new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+    return CAL.workdays.indexOf(d.getDay()) >= 0 ? 'work' : 'off';
+  }
   function renderHist(days, stale) {
-    var t = todayIso(), today = null, total = 0;
-    days.forEach(function (x) { if (x.date === t) today = x; total += x.items.length; });
-    if (selMonth === curMonth) setStatus(today);
-    var html = monthBar();
-    if (stale) html = html.replace('ประวัติการกด</h2>', 'ประวัติการกด <span class="muted">⟳</span></h2>');
-    html += '<div class="sum">' + monthLabel(selMonth) + ' · มาทำงาน <b>' + days.length + '</b> วัน · กดรวม <b>'
-      + total + '</b> ครั้ง</div>';
-    html += days.length ? days.map(function (x) {
-      return '<details' + (x.date === t ? ' open' : '') + '><summary><span>' + (x.date === t ? 'วันนี้ · ' : '')
-        + thDate(x.date) + '</span><span class="badge">' + x.items.length + ' ครั้ง</span></summary>' + items(x.items) + '</details>';
-    }).join('') : '<div class="muted">เดือนนี้ยังไม่มีการกดจากแอป Kosin</div>';
-    el('hist').innerHTML = html + '<div class="muted" style="margin-top:10px">กดที่วันเพื่อดูเวลาและสถานที่</div>';
+    lastDays = days;
+    var by = {}, total = 0, t = todayIso();
+    days.forEach(function (x) { by[x.date] = x; total += x.items.length; });
+    if (selMonth === curMonth) setStatus(by[t] || null);
+    var y = +selMonth.slice(0, 4), m = +selMonth.slice(5, 7);
+    var first = new Date(y, m - 1, 1).getDay(), nd = new Date(y, m, 0).getDate(), cells = '';
+    for (var i = 0; i < first; i++) cells += '<div></div>';
+    for (var dd = 1; dd <= nd; dd++) {
+      var iso = selMonth + '-' + ('0' + dd).slice(-2), ty = dayType(iso), x = by[iso];
+      var dots = '<i class="' + (ty === 'work' ? 'd-shift' : ty === 'hol' ? 'd-hol' : 'd-off') + '"></i>';
+      if (x) dots += '<i class="' + (x.items.length === 1 && ty === 'work' ? 'd-one' : 'd-in') + '"></i>';
+      cells += '<div class="c' + (iso === selDay ? ' sel' : '') + (iso === t ? ' today' : '') + '" data-d="' + iso
+        + '" onclick="pickDay(this.dataset.d)"><span>' + dd + '</span><div class="dots">' + dots + '</div></div>';
+    }
+    el('hist').innerHTML = monthBar()
+      + (stale ? '<div class="muted" style="text-align:center">⟳ กำลังอัปเดต</div>' : '')
+      + '<div class="cal"><div class="dw sun">อา</div><div class="dw">จ</div><div class="dw">อ</div><div class="dw">พ</div>'
+      + '<div class="dw">พฤ</div><div class="dw">ศ</div><div class="dw">ส</div>' + cells + '</div>'
+      + '<div class="legend"><span><i class="d-shift"></i>วันทำงาน</span><span><i class="d-in"></i>บันทึกแล้ว</span>'
+      + '<span><i class="d-one"></i>บันทึกครั้งเดียว</span><span><i class="d-off"></i>เสาร์-อาทิตย์</span>'
+      + '<span><i class="d-hol"></i>วันหยุด</span></div>'
+      + '<div class="sum">' + monthLabel(selMonth) + ' · มาทำงาน <b>' + days.length + '</b> วัน · กดรวม <b>'
+      + total + '</b> ครั้ง</div><div id="dayd"></div>';
+    renderDay();
+  }
+  function pickDay(iso) { selDay = iso; renderHist(lastDays, false); }
+  function renderDay() {
+    var x = null, t = todayIso(), ty = dayType(selDay), p = selDay.split('-');
+    lastDays.forEach(function (d) { if (d.date === selDay) x = d; });
+    var html = '<div class="dh">' + (+p[2]) + ' ' + MONF[+p[1] - 1] + ' ' + (+p[0] + 543) + '</div>';
+    html += ty === 'work'
+      ? '<div class="tl"><i class="d-shift"></i><div><b>กะทำงาน</b><br>🕗 ' + CAL.start + ' – ' + CAL.end
+        + ' &nbsp;·&nbsp; 🍴 พัก ' + CAL.brk + '</div></div>'
+      : '<div class="tl"><i class="' + (ty === 'hol' ? 'd-hol' : 'd-off') + '"></i><div><b>'
+        + (ty === 'hol' ? 'วันหยุด · ' + esc(CAL.hol[selDay]) : 'วันหยุด (เสาร์-อาทิตย์)') + '</b></div></div>';
+    if (x) {
+      var n = x.items.length;
+      x.items.forEach(function (it, i) {
+        var lab = i === 0 ? 'บันทึกเข้า' : (i === n - 1 ? 'บันทึกออก' : 'ระหว่างวัน');
+        html += '<div class="tl"><i class="d-in"></i><div><b>' + lab + '</b> ' + hm(it.t) + ' น.'
+          + (it.dup > 1 ? ' <span class="muted">(กดซ้ำ ' + it.dup + ')</span>' : '')
+          + '<br><span class="pl">' + (it.gps ? '📍 ' + esc(it.place || 'มีพิกัด') : '⚠️ ไม่มีพิกัด') + '</span></div></div>';
+      });
+      if (n === 1 && ty === 'work') {
+        html += '<div class="tl"><i class="d-one"></i><div><b>' + (selDay === t ? 'รอบันทึกออก' : 'ไม่ได้บันทึกออก')
+          + '</b></div></div>';
+      }
+    } else if (ty === 'work') {
+      html += '<div class="tl"><i class="d-none"></i><div class="muted">'
+        + (selDay > t ? 'ยังไม่ถึงวันนี้' : 'ไม่มีการกดจากแอป Kosin ในวันนี้') + '</div></div>';
+    }
+    el('dayd').innerHTML = '<div class="day">' + html + '</div>';
   }
   showWho();
   loadHistory();
