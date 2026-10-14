@@ -42,6 +42,10 @@
   .item .t{font-weight:bold;min-width:48px}
   .item .p{color:#444;flex:1}
   .muted{color:#888;font-size:13px}
+  .months{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+  .months button{flex:none;border:2px solid #0f766e;background:#fff;color:#0f766e;border-radius:16px;padding:5px 12px;font-size:14px}
+  .months button.on{background:#0f766e;color:#fff;font-weight:bold}
+  .sum{background:#f0fdfa;border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:14px;color:#134e4a}
   .foot{text-align:center;color:rgba(255,255,255,.6);font-size:12px;margin-top:18px}
   .pin{display:none;margin:-6px 0 16px;background:#fff7ed;border:2px dashed #f59e0b;border-radius:14px;padding:12px;text-align:center;font-size:15px;line-height:1.5}
   .pin a{display:inline-block;margin-top:8px;background:#f59e0b;color:#fff;font-weight:bold;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:17px}
@@ -216,20 +220,50 @@
       return;
     }
     el('hist').style.display = 'block';
-    el('hist').innerHTML = '<div class="muted">⏳ กำลังโหลดประวัติ...</div>';
+    var month = selMonth, key = 'histm_' + ph + '_' + month;
+    // แสดงประวัติที่จำไว้ในเครื่องทันที (เปิดแอปปุ๊บเห็นเลย) แล้วค่อยอัปเดตจากชีตตามหลัง
+    var saved = null;
+    try { saved = JSON.parse(LS.get(key) || 'null'); } catch (e) { saved = null; }
+    if (saved) renderHist(saved, true);
+    else el('hist').innerHTML = monthBar() + '<div class="muted">⏳ กำลังโหลดประวัติ...</div>';
     google.script.run.withSuccessHandler(function (days) {
-      var t = todayIso(), today = null;
-      days.forEach(function (x) { if (x.date === t) today = x; });
-      setStatus(today);
-      var html = '<h2>ประวัติการกด (ย้อนหลัง 31 วัน)</h2>';
-      html += days.length ? days.map(function (x) {
-        return '<details' + (x.date === t ? ' open' : '') + '><summary><span>' + (x.date === t ? 'วันนี้ · ' : '')
-          + thDate(x.date) + '</span><span class="badge">' + x.items.length + ' ครั้ง</span></summary>' + items(x.items) + '</details>';
-      }).join('') : '<div class="muted">ยังไม่มีประวัติ</div>';
-      el('hist').innerHTML = html + '<div class="muted" style="margin-top:10px">กดที่วันเพื่อดูเวลาและสถานที่</div>';
+      LS.set(key, JSON.stringify(days));
+      if (month === selMonth) renderHist(days, false);  // ระหว่างรอ ผู้ใช้อาจกดไปเดือนอื่นแล้ว
     }).withFailureHandler(function (e) {
-      el('hist').innerHTML = '<div class="muted">โหลดประวัติไม่ได้: ' + esc(e && e.message ? e.message : e) + '</div>';
-    }).history(ph, 31, devId);
+      if (!saved && month === selMonth) el('hist').innerHTML = monthBar()
+        + '<div class="muted">โหลดประวัติไม่ได้: ' + esc(e && e.message ? e.message : e) + '</div>';
+    }).history(ph, month);
+  }
+
+  // ---- เลือกดูทีละเดือน (ย้อนหลัง 6 เดือน) ----
+  var MON = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  var curMonth = todayIso().slice(0, 7), selMonth = curMonth;
+  function monthLabel(ym) { return MON[+ym.slice(5, 7) - 1] + ' ' + String(+ym.slice(0, 4) + 543).slice(-2); }
+  function monthBar() {
+    var y = +curMonth.slice(0, 4), m = +curMonth.slice(5, 7), out = [];
+    for (var i = 0; i < 6; i++) {
+      var ym = y + '-' + ('0' + m).slice(-2);
+      out.push('<button class="' + (ym === selMonth ? 'on' : '') + '" data-m="' + ym + '" onclick="pickMonth(this.dataset.m)">'
+        + (ym === curMonth ? 'เดือนนี้' : monthLabel(ym)) + '</button>');
+      if (--m === 0) { m = 12; y--; }
+    }
+    return '<h2>ประวัติการกด</h2><div class="months">' + out.join('') + '</div>';
+  }
+  function pickMonth(ym) { selMonth = ym; loadHistory(); }
+
+  function renderHist(days, stale) {
+    var t = todayIso(), today = null, total = 0;
+    days.forEach(function (x) { if (x.date === t) today = x; total += x.items.length; });
+    if (selMonth === curMonth) setStatus(today);
+    var html = monthBar();
+    if (stale) html = html.replace('ประวัติการกด</h2>', 'ประวัติการกด <span class="muted">⟳</span></h2>');
+    html += '<div class="sum">' + monthLabel(selMonth) + ' · มาทำงาน <b>' + days.length + '</b> วัน · กดรวม <b>'
+      + total + '</b> ครั้ง</div>';
+    html += days.length ? days.map(function (x) {
+      return '<details' + (x.date === t ? ' open' : '') + '><summary><span>' + (x.date === t ? 'วันนี้ · ' : '')
+        + thDate(x.date) + '</span><span class="badge">' + x.items.length + ' ครั้ง</span></summary>' + items(x.items) + '</details>';
+    }).join('') : '<div class="muted">เดือนนี้ยังไม่มีการกดจากแอป Kosin</div>';
+    el('hist').innerHTML = html + '<div class="muted" style="margin-top:10px">กดที่วันเพื่อดูเวลาและสถานที่</div>';
   }
   showWho();
   loadHistory();
