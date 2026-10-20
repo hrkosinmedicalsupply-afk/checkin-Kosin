@@ -29,6 +29,10 @@
        box-shadow:0 14px 0 #0b4f47,0 22px 30px rgba(0,0,0,.25);cursor:pointer}
   #btn:active{transform:translateY(8px);box-shadow:0 6px 0 #0b4f47,0 10px 16px rgba(0,0,0,.25)}
   #btn:disabled{background:#9ca3af;box-shadow:0 14px 0 #6b7280}
+  #btn{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;touch-action:manipulation;line-height:1.2}
+  #btn.small{font-size:26px;letter-spacing:0}
+  #btn.done,#btn.done:disabled{background:linear-gradient(180deg,#22c55e,#16a34a);box-shadow:0 14px 0 #166534}
+  #btn small{display:block;font-size:15px;font-weight:normal;margin-top:6px}
   .link{display:block;margin:18px auto 0;background:none;border:0;color:#0f766e;font-size:15px;text-decoration:underline}
   #msg{margin-top:22px;padding:14px;border-radius:12px;font-size:16px;line-height:1.5;display:none}
   .ok{background:#d1fae5;display:block!important}.warn{background:#fef3c7;display:block!important}.err{background:#fee2e2;display:block!important}
@@ -169,15 +173,34 @@
     var ph = phone();
     if (!/^0\d{9}$/.test(ph)) { msg('err', 'กรุณาใส่เบอร์โทร 10 หลัก แล้วกด SEND อีกครั้ง'); phoneEl.focus(); return; }
     if (!PRESET) { askLock(ph); return; }  // ลิงก์หลักไม่บันทึกเอง — ต้องยืนยัน/ล็อกเบอร์ก่อน
-    el('btn').disabled = true;
+    btnState('busy');
     msg('warn', '⏳ กำลังหาตำแหน่ง GPS... (รอสักครู่ อย่าปิดหน้านี้)');
     if (!navigator.geolocation) { gpsFail({code: 0}); return; }
     navigator.geolocation.getCurrentPosition(function (p) { send(p.coords); }, gpsFail,
       {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
   }
 
+  // ปุ่ม SEND 3 สถานะ: ปกติ / กำลังบันทึก (เทา) / บันทึกแล้ว (เขียว นับถอยหลังกันกดซ้ำ 10 วิ)
+  var btnTimer = null;
+  function btnState(s) {
+    var b = el('btn');
+    clearInterval(btnTimer);
+    b.classList.remove('small', 'done');
+    if (s === 'busy') {
+      b.disabled = true; b.classList.add('small'); b.innerHTML = 'กำลังบันทึก…';
+    } else if (s === 'done') {
+      var n = 10;
+      b.disabled = true; b.classList.add('small', 'done');
+      var draw = function () { b.innerHTML = '✓ บันทึกแล้ว<small>กดได้อีกใน ' + n + ' วิ</small>'; };
+      draw();
+      btnTimer = setInterval(function () { if (--n <= 0) btnState('idle'); else draw(); }, 1000);
+    } else {
+      b.disabled = false; b.innerHTML = 'SEND';
+    }
+  }
+
   function gpsFail(e) {
-    el('btn').disabled = false;
+    btnState('idle');
     el('nogps').style.display = 'block';
     var how = e.code === 1
       ? 'มือถือ<b>ไม่อนุญาต</b>ให้หน้านี้ใช้ตำแหน่ง<br>1) เปิด <b>ตำแหน่ง/Location</b> ในมือถือ<br>2) กดรูป 🔒 หน้าลิงก์ → สิทธิ์ → <b>ตำแหน่ง: อนุญาต</b><br>3) กด SEND ใหม่'
@@ -190,14 +213,15 @@
     d.phone = phone();
     if (c) { d.lat = c.latitude; d.lng = c.longitude; d.acc = Math.round(c.accuracy); d.alt = c.altitude; }
     msg('warn', '⏳ กำลังบันทึก...');
+    btnState('busy');  // รวมกรณีกด "ส่งแบบไม่มีพิกัด"
     google.script.run.withSuccessHandler(function (r) {
       el('nogps').style.display = 'none';
       msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
         + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด'));
-      setTimeout(function () { el('btn').disabled = false; }, 10000);
+      btnState('done');
       loadHistory();
     }).withFailureHandler(function (e) {
-      el('btn').disabled = false;
+      btnState('idle');
       msg('err', '❌ บันทึกไม่สำเร็จ: ' + esc(e && e.message ? e.message : e) + '<br>ลองกดใหม่อีกครั้ง');
     }).checkin(d);
   }
