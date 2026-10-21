@@ -71,6 +71,13 @@
   .tl{display:flex;gap:12px;align-items:flex-start;padding:8px 0;font-size:15px}
   .tl>i{width:14px;height:14px;margin-top:3px;flex:none}
   .pl{color:#555;font-size:14px}
+  #cam{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;
+       gap:14px;background:rgba(0,0,0,.88);padding:16px}
+  #camMsg{color:#fff;font-size:17px;text-align:center;line-height:1.5}
+  #vid{width:86vw;max-width:400px;aspect-ratio:3/4;object-fit:cover;border-radius:22px;transform:scaleX(-1);background:#111}
+  #snap{width:78px;height:78px;border-radius:50%;border:6px solid #fff;background:#14b8a6;font-size:30px;
+        -webkit-tap-highlight-color:transparent}
+  #snap:disabled{opacity:.4}
   .foot{text-align:center;color:rgba(255,255,255,.6);font-size:12px;margin-top:18px}
   .pin{display:none;margin:-6px 0 16px;background:#fff7ed;border:2px dashed #f59e0b;border-radius:14px;padding:12px;text-align:center;font-size:15px;line-height:1.5}
   .pin a{display:inline-block;margin-top:8px;background:#f59e0b;color:#fff;font-weight:bold;text-decoration:none;padding:10px 18px;border-radius:10px;font-size:17px}
@@ -83,10 +90,14 @@
     <div class="pin" id="pin"></div>
     <div class="status" id="status"><div class="main">กำลังโหลด...</div></div>
     <button id="btn" onclick="go()">SEND</button>
-    <button id="nogps" class="link" style="display:none" onclick="send(null)">ส่งแบบไม่มีพิกัด (ไม่แนะนำ)</button>
+    <button id="nogps" class="link" style="display:none" onclick="gotGps(null)">ส่งแบบไม่มีพิกัด (ไม่แนะนำ)</button>
     <div id="msg"></div>
   </div>
   <div class="hist" id="hist"></div>
+  <div id="cam"><div id="camMsg">กำลังเปิดกล้อง...</div>
+    <video id="vid" playsinline muted autoplay></video>
+    <button id="snap" onclick="snapPhoto()" disabled>📸</button>
+    <button class="link" style="color:#fff" onclick="skipPhoto()">ส่งโดยไม่มีรูป (HR จะเห็นว่าไม่มีรูป)</button></div>
   <div class="foot">KOSIN · HR-1.0</div>
 </div>
 <script>
@@ -174,10 +185,98 @@
     if (!/^0\d{9}$/.test(ph)) { msg('err', 'กรุณาใส่เบอร์โทร 10 หลัก แล้วกด SEND อีกครั้ง'); phoneEl.focus(); return; }
     if (!PRESET) { askLock(ph); return; }  // ลิงก์หลักไม่บันทึกเอง — ต้องยืนยัน/ล็อกเบอร์ก่อน
     btnState('busy');
+    pending = null; shot = null;
+    openCam();  // ถ่ายเซลฟี่ไปพร้อมกับที่อ่าน GPS
     msg('warn', '⏳ กำลังหาตำแหน่ง GPS... (รอสักครู่ อย่าปิดหน้านี้)');
     if (!navigator.geolocation) { gpsFail({code: 0}); return; }
-    navigator.geolocation.getCurrentPosition(function (p) { send(p.coords); }, gpsFail,
+    // อ่าน GPS หลายครั้งในไม่กี่วินาที: GPS จริงจะขยับเล็กน้อยทุกครั้ง แอปหลอกมักให้ค่าเดิมเป๊ะ
+    var samples = [], done = false, wid = null, quit = null;
+    function finish() {
+      if (done) return; done = true;
+      if (wid !== null) navigator.geolocation.clearWatch(wid);
+      clearTimeout(quit);
+      if (!samples.length) { gpsFail({code: 3}); return; }
+      var best = samples.slice().sort(function (a, b) { return a.coords.accuracy - b.coords.accuracy; })[0];
+      var keys = {}, spread = 0, c0 = samples[0].coords;
+      samples.forEach(function (s) {
+        keys[s.coords.latitude.toFixed(7) + ',' + s.coords.longitude.toFixed(7)] = 1;
+        var dy = (s.coords.latitude - c0.latitude) * 111320, dx = (s.coords.longitude - c0.longitude) * 111320;
+        spread = Math.max(spread, Math.sqrt(dx * dx + dy * dy));
+      });
+      gotGps(best.coords, {n: samples.length, uniq: Object.keys(keys).length, spread: Math.round(spread * 100) / 100,
+        age: Math.max(0, (Date.now() - best.timestamp) / 1000)});
+    }
+    wid = navigator.geolocation.watchPosition(function (p) {
+      samples.push(p);
+      if (samples.length === 1) setTimeout(finish, 3500);  // ได้ค่าแรกแล้ว รอเก็บเพิ่มอีกไม่เกิน 3.5 วิ
+      if (samples.length >= 4) finish();
+    }, function (e) { if (!samples.length) { done = true; navigator.geolocation.clearWatch(wid); clearTimeout(quit); gpsFail(e); } },
       {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
+    quit = setTimeout(finish, 22000);
+  }
+
+  // ---- รอทั้ง GPS และรูปเซลฟี่ ครบแล้วค่อยส่ง ----
+  var pending = null, shot = null, camStream = null;
+  function gotGps(c, diag) { pending = {c: c, diag: diag}; trySend(); }
+  function trySend() {
+    if (!pending || shot === null) {
+      if (pending && shot === null) msg('warn', '📸 ถ่ายรูปเพื่อบันทึกเวลา');
+      return;
+    }
+    var p = pending; pending = null;
+    send(p.c, p.diag, shot === 'skip' ? '' : shot);
+  }
+
+  // ---- กล้องหน้าแบบสด (เลือกรูปเก่าจากอัลบั้มไม่ได้) + ประทับวันเวลา/เบอร์ลงรูป ----
+  function openCam() {
+    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }  // กด SEND ซ้ำ
+    var box = el('cam');
+    box.style.display = 'flex';
+    el('camMsg').textContent = 'กำลังเปิดกล้อง...';
+    el('snap').disabled = true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camFail(); return; }
+    navigator.mediaDevices.getUserMedia({video: {facingMode: 'user', width: {ideal: 640}}, audio: false})
+      .then(function (s) {
+        camStream = s;
+        var v = el('vid'); v.srcObject = s; v.play();
+        el('camMsg').textContent = 'มองกล้อง แล้วกดถ่ายรูป';
+        el('snap').disabled = false;
+      }).catch(camFail);
+  }
+  function camFail() {
+    el('camMsg').innerHTML = 'เปิดกล้องไม่ได้ — อนุญาตให้ใช้กล้อง (กด 🔒 หน้าลิงก์ → สิทธิ์ → กล้อง) แล้วกด SEND ใหม่<br>หรือกด "ส่งโดยไม่มีรูป"';
+    el('snap').disabled = true;
+  }
+  function closeCam() {
+    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
+    el('cam').style.display = 'none';
+  }
+  function snapPhoto() {
+    var v = el('vid'), w = 480, h = Math.round(w * (v.videoHeight || 640) / (v.videoWidth || 480));
+    var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    var g = cv.getContext('2d');
+    g.drawImage(v, 0, 0, w, h);
+    var n = new Date(), txt = n.getDate() + '/' + (n.getMonth() + 1) + '/' + (n.getFullYear() + 543) + ' '
+      + ('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2) + ' · ' + phone();
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, h - 44, w, 44);
+    g.fillStyle = '#fff'; g.font = 'bold 17px sans-serif';
+    g.fillText('Kosin Time Stamp', 10, h - 25); g.font = '15px sans-serif'; g.fillText(txt, 10, h - 7);
+    shot = cv.toDataURL('image/jpeg', 0.6);
+    closeCam();
+    msg('warn', '✅ ถ่ายรูปแล้ว · ⏳ กำลังหาตำแหน่ง GPS...');
+    trySend();
+  }
+  function skipPhoto() { shot = 'skip'; closeCam(); trySend(); }
+
+  // สัญญาณว่าเป็นเครื่องจำลอง/โปรแกรมกดอัตโนมัติ (ส่งไปให้ HR ดู ไม่แสดงบนจอ)
+  function envDiag() {
+    var ua = navigator.userAgent, gpu = '';
+    try { var gl = document.createElement('canvas').getContext('webgl');
+      var ext = gl.getExtension('WEBGL_debug_renderer_info');
+      gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; } catch (e) {}
+    var emu = /Android SDK built for|Emulator|sdk_gphone|Genymotion|BlueStacks|Nox|LDPlayer/i.test(ua) ? 'UA'
+      : /SwiftShader|Android Emulator|llvmpipe|VirtualBox|VMware/i.test(gpu) ? gpu : '';
+    return {wd: !!navigator.webdriver, emu: emu, ct: Date.now()};
   }
 
   // ปุ่ม SEND 3 สถานะ: ปกติ / กำลังบันทึก (เทา) / บันทึกแล้ว (เขียว นับถอยหลังกันกดซ้ำ 10 วิ)
@@ -208,16 +307,20 @@
     msg('err', '⚠️ ' + how);
   }
 
-  function send(c) {
+  function send(c, gpsDiag, photo) {
     var d = device();
     d.phone = phone();
+    d.photo = photo || '';
     if (c) { d.lat = c.latitude; d.lng = c.longitude; d.acc = Math.round(c.accuracy); d.alt = c.altitude; }
+    d.diag = envDiag();
+    if (gpsDiag) { d.diag.n = gpsDiag.n; d.diag.uniq = gpsDiag.uniq; d.diag.spread = gpsDiag.spread; d.diag.age = gpsDiag.age; }
     msg('warn', '⏳ กำลังบันทึก...');
     btnState('busy');  // รวมกรณีกด "ส่งแบบไม่มีพิกัด"
     google.script.run.withSuccessHandler(function (r) {
       el('nogps').style.display = 'none';
       msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
-        + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด'));
+        + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
+        + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป'));
       btnState('done');
       loadHistory();
     }).withFailureHandler(function (e) {
