@@ -120,6 +120,24 @@
   }});
 </script>
 <script>
+  var BUILD = '0b9341d9e5';
+  function checkUpdate() {
+    try {
+      fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
+        .then(function (t) {
+          var m = t.match(/var BUILD = '([0-9a-f]+)'/);
+          if (!m || m[1] === BUILD) return;
+          var key = 'upd_' + m[1];
+          try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) {}
+          var q = new URLSearchParams(location.search); q.set('v', m[1]);
+          location.replace(location.pathname + '?' + q.toString());
+        }).catch(function () {});
+    } catch (e) {}
+  }
+  checkUpdate();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkUpdate(); });
+</script>
+<script>
   var LS = {get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
             set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }};
   var phoneEl = document.getElementById('phone');
