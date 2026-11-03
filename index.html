@@ -19,6 +19,8 @@
   .who b{color:#134e4a}
   .who a{color:#0f766e;margin-left:6px}
   #phoneBox{display:none;margin-bottom:14px}
+  #nameBox{display:none;margin-bottom:10px}
+  #nameBox input{width:100%;font-size:19px;padding:12px;border:2px solid #99d5c9;border-radius:12px;text-align:center}
   #phoneBox input{width:100%;font-size:22px;padding:12px;border:2px solid #99d5c9;border-radius:12px;text-align:center;letter-spacing:1px}
   .status{border:2px solid #0f766e;background:#e6f4f1;border-radius:16px;padding:14px;text-align:center;margin-bottom:22px}
   .status .main{font-size:19px;font-weight:bold}
@@ -95,6 +97,7 @@
     <h1>Kosin Time Stamp</h1>
     <div class="sub">กดปุ่มด้านล่างเพื่อบันทึกเวลา (ระบบจะขอตำแหน่งของคุณ)</div>
     <div class="who" id="who"></div>
+    <div id="nameBox"><input id="nm" type="text" maxlength="60" autocomplete="name" placeholder="ชื่อ-นามสกุล (ชื่อเล่น)"></div>
     <div id="phoneBox"><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="ใส่เบอร์โทร 10 หลัก"></div>
     <div class="pin" id="pin"></div>
     <div class="status" id="status"><div class="main">กำลังโหลด...</div></div>
@@ -136,7 +139,7 @@
   }});
 </script>
 <script>
-  var BUILD = '2c694551d9';
+  var BUILD = '2079b2457b';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -170,22 +173,33 @@
   // เบอร์ล็อกตามลิงก์ส่วนตัว (?p=) — ไม่มีช่องให้แก้ ไม่มีปุ่มเปลี่ยน
   // ลิงก์หลัก (ไม่มี ?p=) ใช้แค่ "ลงทะเบียนครั้งแรก" → ยืนยันเบอร์ → พาไปลิงก์ส่วนตัวที่ล็อกแล้ว
   function phone() { return PRESET || phoneEl.value.replace(/\D/g, ''); }
+  // ชื่อพนักงาน: พิมพ์ครั้งแรกตอนลงทะเบียน จำไว้ในเครื่อง (และในระบบ) ครั้งต่อไปไม่ต้องพิมพ์
+  function myName() {
+    var v = el('nm').value.replace(/\s+/g, ' ').trim();
+    return v || LS.get('myName_' + phone()) || '';
+  }
+  function saveName(ph, n) { if (ph && n) LS.set('myName_' + ph, n); }
 
   function showWho() {
     if (PRESET) {
-      el('who').innerHTML = '🔒 เบอร์ <b>' + PRESET + '</b>';
+      var n = LS.get('myName_' + PRESET);
+      el('who').innerHTML = (n ? '👤 <b>' + esc(n) + '</b><br>' : '') + '🔒 เบอร์ <b>' + PRESET + '</b>';
       el('phoneBox').style.display = 'none';
+      // ยังไม่รู้ชื่อ (เครื่องล้างความจำ/ลงทะเบียนจากแอปรุ่นก่อน) → ให้พิมพ์ชื่อครั้งเดียว
+      el('nameBox').style.display = n ? 'none' : 'block';
       el('pin').style.display = 'none';
       return;
     }
-    el('who').innerHTML = '<b>ลงทะเบียนครั้งแรก</b> — ใส่เบอร์โทรของคุณ แล้วกด SEND';
+    el('who').innerHTML = '<b>ลงทะเบียนครั้งแรก</b> — ใส่ชื่อและเบอร์โทรของคุณ แล้วกด SEND';
+    el('nameBox').style.display = 'block';
     el('phoneBox').style.display = 'block';
   }
 
   function askLock(ph) {
+    saveName(ph, myName());
     var pin = el('pin');
     pin.style.display = 'block';
-    pin.innerHTML = 'ยืนยันเบอร์ <b style="font-size:22px">' + ph + '</b> ใช่ไหม?'
+    pin.innerHTML = 'ยืนยัน <b style="font-size:20px">' + esc(myName()) + '</b><br>เบอร์ <b style="font-size:22px">' + ph + '</b> ใช่ไหม?'
       + '<br><span class="muted">เมื่อยืนยันแล้ว เบอร์นี้จะถูกล็อกไว้กับลิงก์ของคุณ แก้เองไม่ได้ (ถ้าผิด ติดต่อ HR)</span>'
       + '<br><a href="' + EXEC + '?p=' + ph + '">🔒 ยืนยันและล็อกเบอร์</a>'
       + '<br><span class="muted">หน้าที่เปิดขึ้นมา ให้<b>เพิ่มลงหน้าจอหลัก</b> แล้วใช้ไอคอนนั้นเช็กอินทุกวัน<br>'
@@ -216,7 +230,9 @@
 
   function go() {
     var ph = phone();
+    if (myName().length < 2) { msg('err', 'กรุณาใส่ชื่อ-นามสกุลของคุณ แล้วกด SEND อีกครั้ง'); el('nameBox').style.display = 'block'; el('nm').focus(); return; }
     if (!/^0\d{9}$/.test(ph)) { msg('err', 'กรุณาใส่เบอร์โทร 10 หลัก แล้วกด SEND อีกครั้ง'); phoneEl.focus(); return; }
+    saveName(ph, myName());
     if (!PRESET) { askLock(ph); return; }  // ลิงก์หลักไม่บันทึกเอง — ต้องยืนยัน/ล็อกเบอร์ก่อน
     btnState('busy');
     pending = null; shot = null;
@@ -355,6 +371,7 @@
   function send(c, gpsDiag, photo) {
     var d = device();
     d.phone = phone();
+    d.name = myName();
     d.photo = photo || '';
     if (c) { d.lat = c.latitude; d.lng = c.longitude; d.acc = Math.round(c.accuracy); d.alt = c.altitude; }
     d.diag = envDiag();
@@ -368,6 +385,7 @@
       tries++;
       google.script.run.withSuccessHandler(function (r) {
         el('nogps').style.display = 'none';
+        if (r.name) { saveName(d.phone, r.name); showWho(); }  // ชื่อทางการจาก HR (ถ้ามี) แทนที่ชื่อที่พิมพ์เอง
         msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
           + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
           + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป')
