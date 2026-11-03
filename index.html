@@ -109,18 +109,21 @@
       withFailureHandler: function (f) { fail = f; return o; }};
     ['checkin', 'history'].forEach(function (n) {
       o[n] = function () {
+        // รอเกิน 45 วิ ถือว่าเน็ตค้าง → ยกเลิกแล้วให้หน้าแอปส่งใหม่ (รหัสคำขอเดิม ไม่บันทึกซ้ำ)
+        var ac = window.AbortController ? new AbortController() : null;
+        var tm = ac ? setTimeout(function () { ac.abort(); }, 45000) : 0;
         fetch(API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
-          body: JSON.stringify({action: n, args: [].slice.call(arguments)})})
+          body: JSON.stringify({action: n, args: [].slice.call(arguments)}), signal: ac ? ac.signal : undefined})
           .then(function (r) { return r.json(); })
-          .then(function (j) { if (j.ok) ok(j.result); else fail(new Error(j.error)); })
-          .catch(function () { fail(new Error('เชื่อมต่อไม่ได้ — ตรวจสัญญาณเน็ตแล้วลองใหม่')); });
+          .then(function (j) { clearTimeout(tm); if (j.ok) ok(j.result); else fail(new Error(j.error)); })
+          .catch(function () { clearTimeout(tm); fail(new Error('เชื่อมต่อไม่ได้ — ตรวจสัญญาณเน็ตแล้วลองใหม่')); });
       };
     });
     return o;
   }});
 </script>
 <script>
-  var BUILD = '0b9341d9e5';
+  var BUILD = 'a57364d7d3';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -332,19 +335,34 @@
     if (c) { d.lat = c.latitude; d.lng = c.longitude; d.acc = Math.round(c.accuracy); d.alt = c.altitude; }
     d.diag = envDiag();
     if (gpsDiag) { d.diag.n = gpsDiag.n; d.diag.uniq = gpsDiag.uniq; d.diag.spread = gpsDiag.spread; d.diag.age = gpsDiag.age; }
+    // รหัสคำขอ: ส่งซ้ำกี่รอบก็บันทึกครั้งเดียว (เซิร์ฟเวอร์จำผลไว้)
+    d.rid = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     msg('warn', '⏳ กำลังบันทึก...');
     btnState('busy');  // รวมกรณีกด "ส่งแบบไม่มีพิกัด"
-    google.script.run.withSuccessHandler(function (r) {
-      el('nogps').style.display = 'none';
-      msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
-        + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
-        + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป'));
-      btnState('done');
-      loadHistory();
-    }).withFailureHandler(function (e) {
-      btnState('idle');
-      msg('err', '❌ บันทึกไม่สำเร็จ: ' + esc(e && e.message ? e.message : e) + '<br>ลองกดใหม่อีกครั้ง');
-    }).checkin(d);
+    var tries = 0, WAIT = [3, 6, 10, 15];  // เน็ตหลุด/คนกดพร้อมกันเยอะ → ลองส่งใหม่เองสูงสุด 4 รอบ
+    function go() {
+      tries++;
+      google.script.run.withSuccessHandler(function (r) {
+        el('nogps').style.display = 'none';
+        msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
+          + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
+          + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป'));
+        btnState('done');
+        loadHistory();
+      }).withFailureHandler(function (e) {
+        var m = String(e && e.message ? e.message : e);
+        var temp = /เชื่อมต่อไม่ได้|ระบบมีคนกด|หมดเวลา|timed? ?out|Service|บริการ|Lock|ล็อก|ลองใหม่ภายหลัง|try again|NetworkError|Failed to fetch|\b(?:500|502|503|429)\b/i.test(m);
+        if (temp && tries <= WAIT.length) {
+          var s = WAIT[tries - 1];
+          msg('warn', '⏳ ระบบมีคนกดพร้อมกันเยอะ กำลังส่งให้ใหม่อัตโนมัติใน ' + s + ' วินาที (รอบ ' + (tries + 1) + '/' + (WAIT.length + 1) + ')<br>ไม่ต้องกดซ้ำ — ไม่บันทึกซ้ำแน่นอน');
+          setTimeout(go, s * 1000);
+          return;
+        }
+        btnState('idle');
+        msg('err', '❌ บันทึกไม่สำเร็จ: ' + esc(m) + '<br>ลองกดใหม่อีกครั้ง');
+      }).checkin(d);
+    }
+    go();
   }
 
   // ---- สถานะวันนี้ + ประวัติย้อนหลังรายวัน (กี่ครั้ง กี่โมง ที่ไหน) ----
