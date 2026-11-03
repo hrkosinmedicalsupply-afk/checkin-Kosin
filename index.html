@@ -66,6 +66,10 @@
   .dots i,.legend i,.tl>i{display:inline-block;width:7px;height:7px;border-radius:50%}
   .d-shift{background:#f9a8d4}.d-in{background:#14b8a6}.d-one{background:#fdba74}
   .d-off{background:#93c5fd}.d-hol{background:#c084fc}.d-none{background:#e5e7eb}
+  .d-late{background:#f59e0b}.d-bad{background:#ef4444}
+  .rt{display:inline-block;border-radius:10px;padding:2px 9px;font-size:13px;margin:2px 2px 0 0;font-weight:normal}
+  .rt.y{background:#fef3c7;color:#92400e}.rt.r{background:#fee2e2;color:#991b1b}.rt.g{background:#dcfce7;color:#166534}
+  .rt.o{background:#e5e7eb;color:#374151}
   .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:#666;margin:10px 0 8px}
   .legend i{margin-right:4px}
   .day{margin-top:10px;border-top:1px solid #e5e7eb;padding-top:12px}
@@ -139,7 +143,7 @@
   }});
 </script>
 <script>
-  var BUILD = '3b0ed04cc7';
+  var BUILD = 'a268ad031b';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -461,6 +465,21 @@
       s.innerHTML = '<div class="main">✅ วันนี้กดแล้ว <big>' + n + '</big> ครั้ง</div>'
         + '<div class="hint">เข้างาน ' + hm(today.items[0].t) + ' น. · ล่าสุด ' + hm(today.items[n - 1].t) + ' น.</div>';
     }
+    if (today && today.r && today.r.late) s.innerHTML += '<div class="hint"><span class="rt y">สาย ' + mtxt(today.r.late) + '</span></div>';
+  }
+  // ---- ผลรายวันตามกฎบริษัท (คิดที่เซิร์ฟเวอร์ แบบเดียวกับรายงานของ HR) ----
+  function mtxt(m) { return m >= 60 ? Math.floor(m / 60) + ' ชม. ' + (m % 60 ? (m % 60) + ' นาที' : '') : m + ' นาที'; }
+  function resultTags(r) {
+    if (!r) return '';
+    var t = [];
+    if (r.late) t.push('<span class="rt y">สาย ' + mtxt(r.late) + (r.forgot === 'in' ? ' (ลืมบันทึกเข้า)' : '') + '</span>');
+    if (r.half) t.push('<span class="rt r">ออกก่อน ' + mtxt(r.early) + ' = ขาดครึ่งวัน</span>');
+    else if (r.early) t.push('<span class="rt y">ออกก่อน ' + mtxt(r.early) + '</span>');
+    if (r.forgot === 'out') t.push('<span class="rt y">ลืมบันทึกออก (นับถึง ' + CAL.end + ')</span>');
+    if (r.ot) t.push('<span class="rt g">OT ' + r.otTxt + (r.work ? '' : ' (วันหยุด)') + '</span>');
+    else if (r.noOt && !r.work) t.push('<span class="rt o">มาวันหยุด (ตำแหน่งนี้ไม่มี OT)</span>');
+    if (!t.length && r.work && !r.pending) t.push('<span class="rt g">✅ ตรงเวลา</span>');
+    return t.join(' ');
   }
   function loadHistory() {
     var ph = phone();
@@ -487,7 +506,7 @@
 
   // ---- ปฏิทินรายเดือน + รายละเอียดรายวัน (แบบแอปลงเวลา) ----
   // CAL = กะงาน/วันทำงาน/วันหยุด จาก config.json ของโปรแกรม (เติมตอนสร้างไฟล์)
-  var CAL = {"start": "08:00", "end": "17:00", "brk": "60 นาที", "workdays": [1, 2, 3, 4, 5], "hol": {"2026-01-01": "วันขึ้นปีใหม่", "2026-01-02": "วันขึ้นปีใหม่", "2026-03-03": "วันมาฆบูชา", "2026-04-06": "วันจักรี", "2026-04-13": "วันสงกรานต์", "2026-04-14": "วันสงกรานต์", "2026-04-15": "วันสงกรานต์", "2026-05-01": "วันแรงงาน", "2026-05-04": "วันฉัตรมงคล", "2026-06-01": "หยุดชดเชยวันวิสาขบูชา", "2026-06-03": "วันเกิดราชินี", "2026-07-28": "วันเกิด ร.10", "2026-07-29": "วันอาสาฬหบูชา", "2026-08-12": "วันแม่", "2026-10-13": "วันสวรรคต ร.9", "2026-10-23": "วันปิยมหาราช", "2026-12-07": "หยุดชดเชยวันพ่อ", "2026-12-10": "วันรัฐธรรมนูญ", "2026-12-31": "วันสิ้นปี", "2027-01-01": "วันปีใหม่"}, "work": {"2026-01-17": "ประชุมใหญ่", "2026-02-21": "ประชุมเสาร์", "2026-03-28": "ประชุมไตรมาส", "2026-04-25": "ทำ 5ส", "2026-05-09": "ประชุมเสาร์", "2026-06-06": "ประชุมเสาร์", "2026-07-04": "ประชุมไตรมาส", "2026-08-01": "ประชุมเสาร์", "2026-08-22": "ทำ 5ส", "2026-09-05": "ประชุมเสาร์", "2026-10-03": "ประชุมไตรมาส", "2026-11-07": "ประชุมเสาร์", "2026-12-12": "ประชุมเสาร์", "2026-12-19": "ทำ 5ส และ check stock", "2027-01-16": "ประชุมใหญ่"}};
+  var CAL = {"start": "08:00", "end": "17:00", "brk": "60 นาที", "workdays": [1, 2, 3, 4, 5], "hol": {"2026-01-01": "วันขึ้นปีใหม่", "2026-01-02": "วันขึ้นปีใหม่", "2026-03-03": "วันมาฆบูชา", "2026-04-06": "วันจักรี", "2026-04-13": "วันสงกรานต์", "2026-04-14": "วันสงกรานต์", "2026-04-15": "วันสงกรานต์", "2026-05-01": "วันแรงงาน", "2026-05-04": "วันฉัตรมงคล", "2026-06-01": "หยุดชดเชยวันวิสาขบูชา", "2026-06-03": "วันเกิดราชินี", "2026-07-28": "วันเกิด ร.10", "2026-07-29": "วันอาสาฬหบูชา", "2026-08-12": "วันแม่", "2026-10-13": "วันสวรรคต ร.9", "2026-10-23": "วันปิยมหาราช", "2026-12-07": "หยุดชดเชยวันพ่อ", "2026-12-10": "วันรัฐธรรมนูญ", "2026-12-31": "วันสิ้นปี", "2027-01-01": "วันปีใหม่"}, "work": {"2026-01-17": "ประชุมใหญ่", "2026-02-21": "ประชุมเสาร์", "2026-03-28": "ประชุมไตรมาส", "2026-04-25": "ทำ 5ส", "2026-05-09": "ประชุมเสาร์", "2026-06-06": "ประชุมเสาร์", "2026-07-04": "ประชุมไตรมาส", "2026-08-01": "ประชุมเสาร์", "2026-08-22": "ทำ 5ส", "2026-09-05": "ประชุมเสาร์", "2026-10-03": "ประชุมไตรมาส", "2026-11-07": "ประชุมเสาร์", "2026-12-12": "ประชุมเสาร์", "2026-12-19": "ทำ 5ส และ check stock", "2027-01-16": "ประชุมใหญ่"}, "ot": "18:00", "field": {"bkk": ["09:00", "16:00"], "upc": ["08:30", "16:30"]}, "grace": 0.0, "window": 30.0, "forgotLate": 10.0, "halfMin": 60.0};
   var MON = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   var MONF = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
               'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
@@ -523,7 +542,8 @@
     for (var dd = 1; dd <= nd; dd++) {
       var iso = selMonth + '-' + ('0' + dd).slice(-2), ty = dayType(iso), x = by[iso];
       var dots = '<i class="' + (ty === 'work' ? 'd-shift' : ty === 'hol' ? 'd-hol' : 'd-off') + '"></i>';
-      if (x) dots += '<i class="' + (x.items.length === 1 && ty === 'work' ? 'd-one' : 'd-in') + '"></i>';
+      if (x) dots += '<i class="' + (x.r && (x.r.half || x.r.forgot) ? 'd-bad'
+        : x.r && (x.r.late || x.r.early) ? 'd-late' : x.items.length === 1 && ty === 'work' ? 'd-one' : 'd-in') + '"></i>';
       cells += '<div class="c' + (iso === selDay ? ' sel' : '') + (iso === t ? ' today' : '') + '" data-d="' + iso
         + '" onclick="pickDay(this.dataset.d)"><span>' + dd + '</span><div class="dots">' + dots + '</div></div>';
     }
@@ -531,12 +551,21 @@
       + (stale ? '<div class="muted" style="text-align:center">⟳ กำลังอัปเดต</div>' : '')
       + '<div class="cal"><div class="dw sun">อา</div><div class="dw">จ</div><div class="dw">อ</div><div class="dw">พ</div>'
       + '<div class="dw">พฤ</div><div class="dw">ศ</div><div class="dw">ส</div>' + cells + '</div>'
-      + '<div class="legend"><span><i class="d-shift"></i>วันทำงาน</span><span><i class="d-in"></i>บันทึกแล้ว</span>'
+      + '<div class="legend"><span><i class="d-shift"></i>วันทำงาน</span><span><i class="d-in"></i>ตรงเวลา</span>'
+      + '<span><i class="d-late"></i>สาย/ออกก่อน</span><span><i class="d-bad"></i>ขาดครึ่งวัน/ลืมบันทึก</span>'
       + '<span><i class="d-one"></i>บันทึกครั้งเดียว</span><span><i class="d-off"></i>เสาร์-อาทิตย์</span>'
       + '<span><i class="d-hol"></i>วันหยุด</span></div>'
       + '<div class="sum">' + monthLabel(selMonth) + ' · มาทำงาน <b>' + days.length + '</b> วัน · กดรวม <b>'
-      + total + '</b> ครั้ง</div><div id="dayd"></div>';
+      + total + '</b> ครั้ง' + monthSum(days) + '</div><div id="dayd"></div>';
     renderDay();
+  }
+  function monthSum(days) {  // สรุปทั้งเดือน: สายกี่ครั้ง รวมกี่นาที · OT รวม (สายรวมเกิน 150 นาที = ใบเตือนตามกฎบริษัท)
+    var n = 0, m = 0, ot = 0, half = 0;
+    days.forEach(function (x) { if (x.r) { if (x.r.late) { n++; m += x.r.late; } ot += x.r.ot || 0; if (x.r.half) half++; } });
+    var s = '<br>สาย <b>' + n + '</b> ครั้ง (รวม ' + mtxt(m) + ')' + (m > 150 ? ' <span class="rt r">เกิน 150 นาที</span>' : '');
+    if (half) s += ' · ขาดครึ่งวัน <b>' + half + '</b>';
+    if (ot) s += ' · OT รวม <b>' + Math.floor(ot / 60) + ':' + ('0' + (ot % 60)).slice(-2) + '</b> ชม.';
+    return s;
   }
   function pickDay(iso) { selDay = iso; renderHist(lastDays, false); }
   function renderDay() {
@@ -546,7 +575,8 @@
     html += ty === 'work'
       ? '<div class="tl"><i class="d-shift"></i><div><b>กะทำงาน</b>'
         + (CAL.work && CAL.work[selDay] ? ' <span class="muted">· เสาร์ทำงาน: ' + esc(CAL.work[selDay]) + '</span>' : '')
-        + '<br>🕗 ' + CAL.start + ' – ' + CAL.end
+        + (x && x.r && x.r.field ? '<br>🚗 วันนี้ทำงานหน้างาน: ' + x.r['in'] + ' – ' + x.r.out
+          : '<br>🕗 ' + CAL.start + ' – ' + CAL.end)
         + ' &nbsp;·&nbsp; 🍴 พัก ' + CAL.brk + '</div></div>'
       : '<div class="tl"><i class="' + (ty === 'hol' ? 'd-hol' : 'd-off') + '"></i><div><b>'
         + (ty === 'hol' ? 'วันหยุด · ' + esc(CAL.hol[selDay]) : 'วันหยุด (เสาร์-อาทิตย์)') + '</b></div></div>';
@@ -559,10 +589,11 @@
           + phBtn(it)
           + '<br><span class="pl">' + (it.gps ? '📍 ' + esc(it.place || 'มีพิกัด') : '⚠️ ไม่มีพิกัด') + '</span></div></div>';
       });
-      if (n === 1 && ty === 'work') {
-        html += '<div class="tl"><i class="d-one"></i><div><b>' + (selDay === t ? 'รอบันทึกออก' : 'ไม่ได้บันทึกออก')
-          + '</b></div></div>';
+      if (n === 1 && ty === 'work' && selDay === t) {
+        html += '<div class="tl"><i class="d-one"></i><div><b>รอบันทึกออก</b></div></div>';
       }
+      var tags = resultTags(x.r);
+      if (tags) html += '<div class="tl"><i class="d-shift"></i><div><b>' + (selDay === t ? 'ผลวันนี้' : 'ผลของวันนี้ตามกฎบริษัท') + '</b><br>' + tags + '</div></div>';
     } else if (ty === 'work') {
       html += '<div class="tl"><i class="d-none"></i><div class="muted">'
         + (selDay > t ? 'ยังไม่ถึงวันนี้' : 'ไม่มีการกดจากแอป Kosin ในวันนี้') + '</div></div>';
