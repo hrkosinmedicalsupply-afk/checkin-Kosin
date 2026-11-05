@@ -127,7 +127,7 @@
     var ok = function () {}, fail = function () {}, o = {
       withSuccessHandler: function (f) { ok = f; return o; },
       withFailureHandler: function (f) { fail = f; return o; }};
-    ['checkin', 'history', 'myPhoto', 'verifyStaff'].forEach(function (n) {
+    ['checkin', 'history', 'myPhoto', 'verifyStaff', 'whoAmI'].forEach(function (n) {
       o[n] = function () {
         // รอเกิน 45 วิ ถือว่าเน็ตค้าง → ยกเลิกแล้วให้หน้าแอปส่งใหม่ (รหัสคำขอเดิม ไม่บันทึกซ้ำ)
         var ac = window.AbortController ? new AbortController() : null;
@@ -143,7 +143,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'dd5739f076';
+  var BUILD = '04589faac4';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -179,6 +179,7 @@
   // ลิงก์หลัก (ไม่มี ?p=) ใช้แค่ "ลงทะเบียนครั้งแรก" → ยืนยันเบอร์ → พาไปลิงก์ส่วนตัวที่ล็อกแล้ว
   function phone() { return PRESET || phoneEl.value.replace(/\D/g, ''); }
   // ชื่อพนักงาน: มาจากไฟล์รายชื่อของ HR (ตอนยืนยันอีเมล+เบอร์) จำไว้ในเครื่อง
+  var whoAsked = false;
   function myName() { return LS.get('myName_' + phone()) || ''; }
   function saveName(ph, n) { if (ph && n) LS.set('myName_' + ph, n); }
   function myEmail() { return el('em').value.trim().toLowerCase(); }
@@ -190,6 +191,12 @@
       el('phoneBox').style.display = 'none';
       el('nameBox').style.display = 'none';
       el('pin').style.display = 'none';
+      if (!n && !whoAsked) {  // ยังไม่รู้ชื่อในเครื่องนี้ (เช่น ไอคอนบน iPhone) → ถามระบบครั้งเดียว
+        whoAsked = true;
+        google.script.run.withSuccessHandler(function (r) {
+          if (r && r.name) { saveName(PRESET, r.name); showWho(); }
+        }).withFailureHandler(function () {}).whoAmI(PRESET, device());
+      }
       return;
     }
     el('who').innerHTML = '<b>ลงทะเบียนครั้งแรก</b> — ใส่อีเมลและเบอร์โทรที่แจ้ง HR ไว้ แล้วกด SEND';
