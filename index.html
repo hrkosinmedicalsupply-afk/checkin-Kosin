@@ -138,10 +138,10 @@
     <div id="fxCame"><label>มาถึงกี่โมง</label><input id="fxTime" type="time" value="07:50" oninput="fxKind(fxK)"></div>
     <div id="fxRule" style="margin-top:12px;background:#ecfdf5;border-radius:12px;padding:12px;color:#134e4a;font-size:16px;line-height:1.5"></div>
     <label>เหตุผล</label><textarea id="fxWhy" maxlength="300" placeholder="เช่น ลืมกดตอนเข้างาน มาถึงออฟฟิศ 07:50"></textarea>
-    <label>รูปหลักฐาน (จำเป็น)</label>
+    <label>รูปหลักฐาน (ถ้ามี)</label>
     <input id="fxFile" type="file" accept="image/*" style="display:none" onchange="fxPhoto(this)">
     <button class="pick" onclick="el('fxFile').click()">📷 ถ่ายรูป / เลือกรูปจากอัลบั้ม</button>
-    <div class="muted" style="margin-top:6px">เช่น รูปที่ถ่ายตอนมาถึง เห็นสถานที่หรือเวลา</div>
+    <div class="muted" style="margin-top:6px">เช่น รูปที่ถ่ายตอนมาถึง เห็นสถานที่หรือเวลา · ไม่มีรูปก็ส่งได้</div>
     <img id="fxPrev" alt="รูปหลักฐาน">
     <div id="fxMsg" class="muted" style="margin-top:10px"></div>
     <button class="go" id="fxGo" onclick="fxSend()">ส่งคำขอให้ HR</button>
@@ -174,7 +174,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'bae42cc44d';
+  var BUILD = 'e8a5b98296';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -532,7 +532,6 @@
     var why = el('fxWhy').value.trim();
     if (fxK === 'in' && !el('fxTime').value) { el('fxMsg').textContent = '⚠️ ใส่เวลาที่มาถึง'; return; }
     if (why.length < 3) { el('fxMsg').textContent = '⚠️ ใส่เหตุผล'; return; }
-    if (!fxImg) { el('fxMsg').textContent = '⚠️ แนบรูปหลักฐานก่อน'; return; }
     el('fxGo').disabled = true; el('fxMsg').textContent = '⏳ กำลังส่ง...';
     google.script.run.withSuccessHandler(function () {
       el('fx').style.display = 'none';
@@ -718,7 +717,7 @@
         + (selDay > t ? 'ยังไม่ถึงวันนี้' : 'ไม่มีการกดจากแอป Kosin ในวันนี้') + '</div></div>';
     }
     if (ty === 'work' && selDay <= t) {  // ลืมกดเข้า/ออก → ขอแก้ไขเวลา (HR อนุมัติ)
-      html += '<button class="fixbtn" onclick="fxOpen(\'' + selDay + '\')">✏️ ลืมกด? ขอแก้ไขเวลา (แนบรูปหลักฐาน)</button>';
+      html += '<button class="fixbtn" onclick="fxOpen(\'' + selDay + '\')">✏️ ลืมกด? ขอแก้ไขเวลา</button>';
     }
     el('dayd').innerHTML = '<div class="day">' + html + '</div>';
   }
