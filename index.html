@@ -191,7 +191,7 @@
   }});
 </script>
 <script>
-  var BUILD = '26b3c39a69';
+  var BUILD = '996402be94';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -672,7 +672,7 @@
     }).withFailureHandler(function (e) {
       if (!saved && month === selMonth) el('hist').innerHTML = monthBar()
         + '<div class="muted">โหลดประวัติไม่ได้: ' + esc(e && e.message ? e.message : e) + '</div>';
-    }).history(ph, month);
+    }).history(ph, month, device());  // ระบบตรวจว่าเป็นมือถือเจ้าของเบอร์
   }
 
   // ---- ปฏิทินรายเดือน + รายละเอียดรายวัน (แบบแอปลงเวลา) ----
