@@ -156,9 +156,8 @@
   </div></div>
   <div id="ot"><div class="sheet">
     <h3>🕒 ขออนุมัติ OT</h3><div class="muted" id="otDay"></div>
-    <div style="margin-top:12px;background:#ecfeff;border-radius:12px;padding:12px;color:#155e75;font-size:15px;line-height:1.5">ตามกฎบริษัท OT ต้องได้รับอนุมัติก่อน · นับเฉพาะช่วงเวลาที่ HR อนุมัติ และที่อยู่ทำงานจริง</div>
-    <div style="display:flex;gap:10px"><div style="flex:1"><label>เริ่ม OT</label><input id="otFrom" type="time" value="18:00"></div>
-      <div style="flex:1"><label>สิ้นสุด OT</label><input id="otUntil" type="time" value="20:00"></div></div>
+    <div style="margin-top:12px;background:#ecfeff;border-radius:12px;padding:12px;color:#155e75;font-size:15px;line-height:1.5">ขอ OT <b>หลังทำเสร็จ</b> · เวลา OT คิดจากเวลาที่กด SEND จริง · เจ้านายอนุมัติก่อน แล้ว HR อนุมัติ</div>
+    <div id="otCalc" style="margin-top:12px;background:#f0fdfa;border:2px solid #99d5c9;border-radius:12px;padding:12px;font-size:17px;line-height:1.5;color:#134e4a"></div>
     <label>งานที่ทำ / เหตุผล</label><textarea id="otWhy" maxlength="300" placeholder="เช่น เคลียร์ของเข้าสต็อก ส่งของ รพ.ศิริราช"></textarea>
     <div id="otMsg" class="muted" style="margin-top:10px"></div>
     <button class="go" id="otGo" onclick="otSend()">ส่งคำขอ OT</button>
@@ -191,7 +190,7 @@
   }});
 </script>
 <script>
-  var BUILD = '996402be94';
+  var BUILD = 'df22979be8';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -564,27 +563,42 @@
     var d = new Date(); d.setDate(d.getDate() - n);
     return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
   }
-  // ---- ขออนุมัติ OT (กฎบริษัท: ต้องขอก่อนทำ) ----
+  // ---- ขออนุมัติ OT: ขอหลังทำเสร็จ · เวลาจากที่กด SEND จริง (เซิร์ฟเวอร์คิดซ้ำอีกรอบ แก้เองไม่ได้) ----
+  var otOkTime = false;
+  function otCalc(iso) {
+    var x = null;
+    lastDays.forEach(function (d) { if (d.date === iso) x = d; });
+    var it = x ? x.items.filter(function (i) { return !i.fix; }) : [];
+    if (!it.length) return {err: 'วันนั้นยังไม่มีการกด SEND — กดตอนเลิกงานก่อน แล้วค่อยขอ OT'};
+    var last = it[it.length - 1], until = last.t.slice(0, 5);
+    var from = dayType(iso) === 'work' ? (last.off ? CAL.end : CAL.ot) : it[0].t.slice(0, 5);
+    if (until <= from) return {err: 'ยังไม่มีเวลาเกินเวลาเลิกงาน (กดล่าสุด ' + until + ' น. · OT เริ่มนับ ' + from + ' น.)<br>กด SEND ตอนเลิกงานจริงก่อน แล้วค่อยขอ'};
+    var m = (+until.slice(0, 2) * 60 + +until.slice(3, 5)) - (+from.slice(0, 2) * 60 + +from.slice(3, 5));
+    return {from: from, until: until, mins: m, off: last.off};
+  }
   function otOpen(iso) {
-    var p = iso.split('-');
+    var p = iso.split('-'), c = otCalc(iso);
     el('otDay').textContent = 'วันที่ ' + (+p[2]) + ' ' + MONF[+p[1] - 1] + ' ' + (+p[0] + 543);
-    el('ot').dataset.d = iso; el('otFrom').value = CAL.ot || '18:00'; el('otUntil').value = '20:00'; el('otWhy').value = '';
-    el('otMsg').textContent = ''; el('otGo').disabled = false; el('ot').style.display = 'flex';
+    el('ot').dataset.d = iso; el('otWhy').value = '';
+    otOkTime = !c.err;
+    el('otCalc').innerHTML = c.err ? '⚠️ ' + c.err
+      : 'OT ตามเวลาที่กดจริง<br><b style="font-size:24px">' + c.from + ' – ' + c.until + ' น.</b> (' + mtxt(c.mins) + ')'
+        + '<div class="muted">' + (c.off ? 'กดออกนอกสถานที่ → OT นับจาก ' + CAL.end : 'OT นับจาก ' + c.from) + ' · ถึงเวลาที่กด SEND ล่าสุด</div>';
+    el('otMsg').textContent = ''; el('otGo').disabled = !otOkTime; el('ot').style.display = 'flex';
   }
   function otSend() {
     var why = el('otWhy').value.trim();
-    if (!el('otFrom').value || !el('otUntil').value) { el('otMsg').textContent = '⚠️ ใส่เวลาเริ่มและสิ้นสุด OT'; return; }
-    if (el('otUntil').value <= el('otFrom').value) { el('otMsg').textContent = '⚠️ เวลาสิ้นสุดต้องหลังเวลาเริ่ม'; return; }
+    if (!otOkTime) { el('otMsg').textContent = '⚠️ ยังขอ OT วันนี้ไม่ได้'; return; }
     if (why.length < 3) { el('otMsg').textContent = '⚠️ ใส่งานที่ทำ / เหตุผล'; return; }
     el('otGo').disabled = true; el('otMsg').textContent = '⏳ กำลังส่ง...';
     google.script.run.withSuccessHandler(function () {
       el('ot').style.display = 'none';
-      msg('ok', '✅ ส่งคำขอ OT แล้ว — รอ HR อนุมัติ');
+      msg('ok', '✅ ส่งคำขอ OT แล้ว — รอเจ้านายอนุมัติ แล้ว HR อนุมัติ');
       LS.del('histm_' + phone() + '_' + selMonth); loadHistory();
     }).withFailureHandler(function (e) {
       el('otGo').disabled = false;
       el('otMsg').textContent = '❌ ' + (e && e.message ? e.message : 'ส่งไม่สำเร็จ ลองใหม่');
-    }).requestOT(phone(), {date: el('ot').dataset.d, from: el('otFrom').value, until: el('otUntil').value, reason: why, dev: device()});
+    }).requestOT(phone(), {date: el('ot').dataset.d, reason: why, dev: device()});
   }
   function otTags(list) {
     return (list || []).map(function (q) {
@@ -776,7 +790,7 @@
       html += '<button class="fixbtn" onclick="fxOpen(\'' + selDay + '\')">✏️ ลืมกด? ขอแก้ไขเวลา</button>';
     }
     var noOt = x && x.r && x.r.noOt;
-    if (!noOt && selDay >= daysAgo(7)) {  // ขออนุมัติ OT ล่วงหน้า / ย้อนหลังไม่เกิน 7 วัน
+    if (!noOt && x && x.items.length && selDay <= t && selDay >= daysAgo(7)) {  // ขอ OT หลังทำเสร็จ (ย้อนหลังไม่เกิน 7 วัน)
       html += '<button class="fixbtn" style="background:#ecfeff;color:#155e75;border-color:#0891b2" onclick="otOpen(\'' + selDay + '\')">🕒 ขออนุมัติ OT</button>';
     }
     el('dayd').innerHTML = '<div class="day">' + html + '</div>';
