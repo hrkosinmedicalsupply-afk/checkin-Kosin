@@ -102,6 +102,8 @@
   #cam{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;
        gap:14px;background:rgba(0,0,0,.88);padding:16px}
   #camMsg{color:#fff;font-size:17px;text-align:center;line-height:1.5}
+  #camX{position:absolute;top:14px;right:14px;width:48px;height:48px;border-radius:50%;border:2px solid #fff;
+        background:rgba(255,255,255,.15);color:#fff;font-size:24px;line-height:1;-webkit-tap-highlight-color:transparent}
   #vid{width:86vw;max-width:400px;aspect-ratio:3/4;object-fit:cover;border-radius:22px;transform:scaleX(-1);background:#111}
   #snap{width:78px;height:78px;border-radius:50%;border:6px solid #fff;background:#14b8a6;font-size:30px;
         -webkit-tap-highlight-color:transparent}
@@ -132,12 +134,12 @@
     <div id="msg"></div>
   </div>
   <div class="hist" id="hist"></div>
-  <div id="cam"><div id="camMsg">กำลังเปิดกล้อง...</div>
+  <div id="cam"><button id="camX" onclick="cancelCam()" aria-label="ยกเลิก">✕</button><div id="camMsg">กำลังเปิดกล้อง...</div>
     <video id="vid" playsinline muted autoplay></video>
     <div class="camrow"><button id="snap" onclick="snapPhoto()" disabled>📸</button>
       <button id="flip" onclick="flipCam()" title="สลับกล้องหน้า/หลัง">🔄</button></div>
     <div id="flipLab">กล้องหน้า · กด 🔄 เพื่อสลับเป็นกล้องหลัง</div>
-    <button class="link" style="color:#fff" onclick="skipPhoto()">ส่งโดยไม่มีรูป (HR จะเห็นว่าไม่มีรูป)</button></div>
+    <div style="color:#cbd5e1;font-size:13px;text-align:center">ต้องถ่ายรูปถึงจะบันทึกเวลาได้ · กด ✕ มุมบนเพื่อยกเลิก</div></div>
   <div id="fx"><div class="sheet">
     <h3>✏️ ขอแก้ไขเวลา</h3><div class="muted" id="fxDay"></div>
     <label>ขอแก้</label>
@@ -190,7 +192,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'bdca84ace4';
+  var BUILD = 'e6d3685c61';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -304,7 +306,7 @@
       return;
     }
     btnState('busy');
-    pending = null; shot = null;
+    pending = null; shot = null; camCancelled = false;
     openCam();  // ถ่ายเซลฟี่ไปพร้อมกับที่อ่าน GPS
     msg('warn', '⏳ กำลังหาตำแหน่ง GPS... (รอสักครู่ อย่าปิดหน้านี้)');
     if (!navigator.geolocation) { gpsFail({code: 0}); return; }
@@ -336,7 +338,14 @@
 
   // ---- รอทั้ง GPS และรูปเซลฟี่ ครบแล้วค่อยส่ง ----
   var pending = null, shot = null, camStream = null;
-  function gotGps(c, diag) { pending = {c: c, diag: diag}; trySend(); }
+  var camCancelled = false;
+  function gotGps(c, diag) { if (camCancelled) return; pending = {c: c, diag: diag}; trySend(); }
+  // ✕ ยกเลิก: ปิดกล้อง ไม่บันทึกเวลา (ต้องถ่ายรูปถึงจะเช็กอินได้)
+  function cancelCam() {
+    camCancelled = true; pending = null; shot = null;
+    closeCam(); btnState('idle'); el('nogps').style.display = 'none';
+    msg('warn', 'ยกเลิกแล้ว — ยังไม่ได้บันทึกเวลา<br>ต้อง<b>ถ่ายรูป</b>ถึงจะบันทึกเวลาได้ กด SEND ใหม่เมื่อพร้อม');
+  }
   function trySend() {
     if (!pending || shot === null) {
       if (pending && shot === null) msg('warn', '📸 ถ่ายรูปเพื่อบันทึกเวลา');
@@ -373,7 +382,7 @@
     openCam();
   }
   function camFail() {
-    el('camMsg').innerHTML = 'เปิดกล้องไม่ได้ — อนุญาตให้ใช้กล้อง (กด 🔒 หน้าลิงก์ → สิทธิ์ → กล้อง) แล้วกด SEND ใหม่<br>หรือกด "ส่งโดยไม่มีรูป"';
+    el('camMsg').innerHTML = 'เปิดกล้องไม่ได้ — ต้องถ่ายรูปถึงจะบันทึกเวลาได้<br>อนุญาตให้ใช้กล้อง (กด 🔒 หน้าลิงก์ → สิทธิ์ → กล้อง: อนุญาต)<br>แล้วกด ✕ และกด SEND ใหม่';
     el('snap').disabled = true;
   }
   function closeCam() {
@@ -396,7 +405,6 @@
     msg('warn', '✅ ถ่ายรูปแล้ว · ⏳ กำลังหาตำแหน่ง GPS...');
     trySend();
   }
-  function skipPhoto() { shot = 'skip'; closeCam(); trySend(); }
 
   // สัญญาณว่าเป็นเครื่องจำลอง/โปรแกรมกดอัตโนมัติ (ส่งไปให้ HR ดู ไม่แสดงบนจอ)
   function envDiag() {
