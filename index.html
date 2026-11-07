@@ -190,7 +190,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'df22979be8';
+  var BUILD = 'bdca84ace4';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -251,14 +251,15 @@
     el('phoneBox').style.display = 'block';
   }
 
-  function askLock(ph, name) {
+  function askLock(ph, name, tok) {
+    if (tok) LS.set('rt_' + ph, tok);
     saveName(ph, name);
     LS.set('email_' + ph, myEmail());  // ใช้ตอนกดครั้งแรก (ระบบตรวจซ้ำอีกรอบ) แล้วลบทิ้ง
     var pin = el('pin');
     pin.style.display = 'block';
     pin.innerHTML = '✅ พบในรายชื่อพนักงาน<br><b style="font-size:20px">' + esc(name || '') + '</b><br>เบอร์ <b style="font-size:22px">' + ph + '</b>'
       + '<br><span class="muted">เมื่อยืนยันแล้ว เบอร์นี้จะถูกล็อกไว้กับมือถือเครื่องนี้ แก้เองไม่ได้ (เปลี่ยนมือถือ ติดต่อ HR)</span>'
-      + '<br><a href="' + EXEC + '?p=' + ph + '">🔒 ยืนยันและเริ่มใช้งาน</a>'
+      + '<br><a href="' + EXEC + '?p=' + ph + (tok ? '&t=' + tok : '') + '">🔒 ยืนยันและเริ่มใช้งาน</a>'
       + '<br><span class="muted">หน้าที่เปิดขึ้นมา ให้<b>เพิ่มลงหน้าจอหลัก</b> แล้วใช้ไอคอนนั้นเช็กอินทุกวัน<br>'
       + 'iPhone: ปุ่มแชร์ ⬆️ → เพิ่มไปยังหน้าจอโฮม · Android: ⋮ → เพิ่มลงในหน้าจอหลัก</span>';
     msg('', '');
@@ -268,7 +269,7 @@
   function verifyStaff(ph) {
     msg('warn', '⏳ กำลังตรวจกับรายชื่อพนักงาน...');
     google.script.run.withSuccessHandler(function (r) {
-      askLock(ph, r.name);
+      askLock(ph, r.name, r.t);
     }).withFailureHandler(function (e) {
       msg('err', '❌ ' + esc(e && e.message ? e.message : 'ตรวจไม่สำเร็จ ลองใหม่อีกครั้ง'));
     }).verifyStaff(ph, myEmail());
@@ -442,6 +443,8 @@
     d.name = myName();
     d.authv = 1;  // หน้าแอปรุ่นที่ยืนยันอีเมล+เบอร์ตอนลงทะเบียน
     d.email = LS.get('email_' + d.phone) || '';
+    var qt = ''; try { qt = new URLSearchParams(location.search).get('t') || ''; } catch (e) {}
+    d.rt = LS.get('rt_' + d.phone) || qt;  // รหัสลงทะเบียน (ติดมากับลิงก์ยืนยัน) ใช้แทนอีเมลตอนกดครั้งแรก
     d.photo = photo || '';
     if (c) { d.lat = c.latitude; d.lng = c.longitude; d.acc = Math.round(c.accuracy); d.alt = c.altitude; }
     d.diag = envDiag();
@@ -456,7 +459,7 @@
       google.script.run.withSuccessHandler(function (r) {
         el('nogps').style.display = 'none';
         if (r.name) { saveName(d.phone, r.name); showWho(); }  // ชื่อทางการจาก HR (ถ้ามี) แทนที่ชื่อที่พิมพ์เอง
-        LS.del('email_' + d.phone);
+        LS.del('email_' + d.phone); LS.del('rt_' + d.phone);
         msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
           + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
           + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป')
