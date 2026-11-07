@@ -139,6 +139,8 @@
     <div class="camrow"><button id="snap" onclick="snapPhoto()" disabled>📸</button>
       <button id="flip" onclick="flipCam()" title="สลับกล้องหน้า/หลัง">🔄</button></div>
     <div id="flipLab">กล้องหน้า · กด 🔄 เพื่อสลับเป็นกล้องหลัง</div>
+    <input id="camFile" type="file" accept="image/*" capture="user" style="display:none" onchange="filePhoto(this)">
+    <button id="camAlt" onclick="el('camFile').click()" style="display:none;padding:14px 22px;border:0;border-radius:14px;background:#14b8a6;color:#fff;font-size:18px;font-weight:bold">📷 เปิดกล้องของมือถือ</button>
     <div style="color:#cbd5e1;font-size:13px;text-align:center">ต้องถ่ายรูปถึงจะบันทึกเวลาได้ · กด ✕ มุมบนเพื่อยกเลิก</div></div>
   <div id="fx"><div class="sheet">
     <h3>✏️ ขอแก้ไขเวลา</h3><div class="muted" id="fxDay"></div>
@@ -192,7 +194,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'e6d3685c61';
+  var BUILD = '599bc3bd6e';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -362,7 +364,7 @@
     if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }  // กด SEND ซ้ำ/สลับกล้อง
     var box = el('cam');
     box.style.display = 'flex';
-    el('camMsg').textContent = 'กำลังเปิดกล้อง...';
+    el('camMsg').textContent = 'กำลังเปิดกล้อง...'; el('camAlt').style.display = 'none';
     el('snap').disabled = true;
     var front = camFacing === 'user';
     el('vid').style.transform = front ? 'scaleX(-1)' : 'none';  // กล้องหน้าแสดงแบบกระจก ดูง่าย
@@ -381,19 +383,21 @@
     LS.set('camFacing', camFacing);
     openCam();
   }
-  function camFail() {
-    el('camMsg').innerHTML = 'เปิดกล้องไม่ได้ — ต้องถ่ายรูปถึงจะบันทึกเวลาได้<br>อนุญาตให้ใช้กล้อง (กด 🔒 หน้าลิงก์ → สิทธิ์ → กล้อง: อนุญาต)<br>แล้วกด ✕ และกด SEND ใหม่';
+  // กล้องในหน้าเว็บเปิดไม่ได้ (เช่น iPhone เปิดจากไอคอนหน้าจอโฮม) → ใช้แอปกล้องของมือถือแทน
+  function camFail(e) {
+    el('camMsg').innerHTML = 'กดปุ่มด้านล่าง เพื่อถ่ายรูปด้วยกล้องของมือถือ'
+      + '<br><span style="font-size:13px;color:#cbd5e1">(ถ้ากดแล้วไม่มีอะไรขึ้น: อนุญาตให้ใช้กล้องในการตั้งค่าของมือถือ แล้วกด ✕ และกด SEND ใหม่)'
+      + (e && e.name ? ' · ' + esc(e.name) : '') + '</span>';
     el('snap').disabled = true;
+    el('camFile').setAttribute('capture', camFacing === 'user' ? 'user' : 'environment');
+    el('camAlt').style.display = 'block';
   }
-  function closeCam() {
-    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
-    el('cam').style.display = 'none';
-  }
-  function snapPhoto() {
-    var v = el('vid'), w = 480, h = Math.round(w * (v.videoHeight || 640) / (v.videoWidth || 480));
+  // ประทับวันเวลา + เบอร์ลงรูป (ทั้งกล้องในหน้าเว็บ และกล้องของมือถือ)
+  function stampShot(src, sw, sh) {
+    var w = 480, h = Math.round(w * (sh || 640) / (sw || 480));
     var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     var g = cv.getContext('2d');
-    g.drawImage(v, 0, 0, w, h);
+    g.drawImage(src, 0, 0, w, h);
     var n = new Date(), txt = n.getDate() + '/' + (n.getMonth() + 1) + '/' + (n.getFullYear() + 543) + ' '
       + ('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2) + ' · ' + phone()
       + (camFacing === 'user' ? '' : ' · กล้องหลัง');  // HR รู้ว่ารูปนี้ไม่ใช่เซลฟี่
@@ -404,6 +408,24 @@
     closeCam();
     msg('warn', '✅ ถ่ายรูปแล้ว · ⏳ กำลังหาตำแหน่ง GPS...');
     trySend();
+  }
+  function filePhoto(inp) {
+    var f = inp.files && inp.files[0]; if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var im = new Image();
+      im.onload = function () { stampShot(im, im.naturalWidth, im.naturalHeight); inp.value = ''; };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  }
+  function closeCam() {
+    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
+    el('cam').style.display = 'none';
+  }
+  function snapPhoto() {
+    var v = el('vid');
+    stampShot(v, v.videoWidth, v.videoHeight);
   }
 
   // สัญญาณว่าเป็นเครื่องจำลอง/โปรแกรมกดอัตโนมัติ (ส่งไปให้ HR ดู ไม่แสดงบนจอ)
