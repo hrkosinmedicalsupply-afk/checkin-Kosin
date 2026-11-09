@@ -65,7 +65,7 @@
   .dots i,.legend i,.tl>i{display:inline-block;width:7px;height:7px;border-radius:50%}
   .d-shift{background:#f9a8d4}.d-in{background:#14b8a6}.d-one{background:#fdba74}
   .d-off{background:#93c5fd}.d-hol{background:#c084fc}.d-none{background:#e5e7eb}
-  .d-late{background:#f59e0b}.d-bad{background:#ef4444}
+  .d-late{background:#f59e0b}.d-bad{background:#ef4444}.d-leave{background:#a78bfa}
   .fixbtn{margin-top:10px;width:100%;background:#fff7ed;color:#9a3412;border:2px dashed #f59e0b;border-radius:12px;padding:12px;font-size:16px;font-weight:bold}
   .req{display:inline-block;border-radius:10px;padding:3px 10px;font-size:13px;margin:3px 3px 0 0}
   .req.w{background:#fef3c7;color:#92400e}.req.ok{background:#dcfce7;color:#166534}.req.no{background:#fee2e2;color:#991b1b}
@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'a1fca5b4aa';
+  var BUILD = '7b57f327e7';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -759,6 +759,7 @@
     for (var dd = 1; dd <= nd; dd++) {
       var iso = selMonth + '-' + ('0' + dd).slice(-2), ty = dayType(iso), x = by[iso];
       var dots = '<i class="' + (ty === 'work' ? 'd-shift' : ty === 'hol' ? 'd-hol' : 'd-off') + '"></i>';
+      if (x && x.leave) dots += '<i class="d-leave"></i>';
       if (x && x.items.length) dots += '<i class="' + (x.r && (x.r.half || x.r.forgot) ? 'd-bad'
         : x.r && (x.r.late || x.r.early) ? 'd-late' : x.items.length === 1 && ty === 'work' ? 'd-one' : 'd-in') + '"></i>';
       cells += '<div class="c' + (iso === selDay ? ' sel' : '') + (iso === t ? ' today' : '') + '" data-d="' + iso
@@ -771,7 +772,7 @@
       + '<div class="legend"><span><i class="d-shift"></i>วันทำงาน</span><span><i class="d-in"></i>ตรงเวลา</span>'
       + '<span><i class="d-late"></i>สาย/ออกก่อน</span><span><i class="d-bad"></i>ขาดครึ่งวัน/ลืมบันทึก</span>'
       + '<span><i class="d-one"></i>บันทึกครั้งเดียว</span><span><i class="d-off"></i>เสาร์-อาทิตย์</span>'
-      + '<span><i class="d-hol"></i>วันหยุด</span></div>'
+      + '<span><i class="d-hol"></i>วันหยุด</span><span><i class="d-leave"></i>วันลา</span></div>'
       + '<div class="sum">' + monthLabel(selMonth) + ' · มาทำงาน <b>' + days.filter(function (x) { return x.items.length; }).length + '</b> วัน · กดรวม <b>'
       + total + '</b> ครั้ง' + monthSum(days) + '</div><div id="dayd"></div>';
     renderDay();
@@ -798,6 +799,11 @@
         + ' &nbsp;·&nbsp; 🍴 พัก ' + CAL.brk + '</div></div>'
       : '<div class="tl"><i class="' + (ty === 'hol' ? 'd-hol' : 'd-off') + '"></i><div><b>'
         + (ty === 'hol' ? 'วันหยุด · ' + esc(CAL.hol[selDay]) : 'วันหยุด (เสาร์-อาทิตย์)') + '</b></div></div>';
+    if (x && x.leave) {
+      html += '<div class="tl"><i class="d-leave"></i><div><b>' + esc(x.leave.type) + (x.leave.half ? ' (' + esc(x.leave.half) + ')' : '')
+        + '</b><br><span class="pl">' + (x.leave.status === 'รับทราบแล้ว' ? '✅ เจ้านายรับทราบแล้ว' : '⏳ รอเจ้านายรับทราบ')
+        + ' · จากอีเมลลา</span></div></div>';
+    }
     if (x) {
       var n = x.items.length;
       x.items.forEach(function (it, i) {
@@ -814,7 +820,7 @@
       if (tags) html += '<div class="tl"><i class="d-shift"></i><div><b>' + (selDay === t ? 'ผลวันนี้' : 'ผลของวันนี้ตามกฎบริษัท') + '</b><br>' + tags + '</div></div>';
       if (x.req && x.req.length) html += '<div class="tl"><i class="d-late"></i><div><b>คำขอแก้ไขเวลา</b><br>' + reqTags(x.req) + '</div></div>';
       if (x.ot && x.ot.length) html += '<div class="tl"><i class="d-shift"></i><div><b>ขออนุมัติ OT</b><br>' + otTags(x.ot) + '</div></div>';
-    } else if (ty === 'work') {
+    } else if (ty === 'work' && !(x && x.leave)) {
       html += '<div class="tl"><i class="d-none"></i><div class="muted">'
         + (selDay > t ? 'ยังไม่ถึงวันนี้' : 'ไม่มีการกดจากแอป Kosin ในวันนี้') + '</div></div>';
     }
