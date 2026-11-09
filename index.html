@@ -177,7 +177,7 @@
     var ok = function () {}, fail = function () {}, o = {
       withSuccessHandler: function (f) { ok = f; return o; },
       withFailureHandler: function (f) { fail = f; return o; }};
-    ['checkin', 'history', 'myPhoto', 'verifyStaff', 'whoAmI', 'requestFix', 'requestOT'].forEach(function (n) {
+    ['checkin', 'history', 'myPhoto', 'verifyStaff', 'whoAmI', 'requestFix', 'requestOT', 'namePlace'].forEach(function (n) {
       o[n] = function () {
         // รอเกิน 45 วิ ถือว่าเน็ตค้าง → ยกเลิกแล้วให้หน้าแอปส่งใหม่ (รหัสคำขอเดิม ไม่บันทึกซ้ำ)
         var ac = window.AbortController ? new AbortController() : null;
@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'd36217946c';
+  var BUILD = 'd3c29aa012';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -485,6 +485,18 @@
     msg('err', '⚠️ ' + how);
   }
 
+  // พนักงานตั้งชื่อจุดที่เพิ่งกด (ระบบยังไม่รู้ชื่อ) — ขึ้นในแอป/หน้า HR/รายงานทันที แบบมี "(พนักงานตั้ง)" ต่อท้าย
+  function savePlace() {
+    var n = el('npName').value.trim();
+    if (n.length < 2) { el('npMsg').textContent = 'พิมพ์ชื่อสถานที่ก่อน'; return; }
+    el('npMsg').textContent = '⏳ กำลังบันทึก...';
+    google.script.run.withSuccessHandler(function (r) {
+      el('np').innerHTML = (r && r.existing ? '📍 ที่นี่มีชื่ออยู่แล้ว: <b>' : '✅ บันทึกชื่อสถานที่แล้ว: <b>') + esc(r && r.name || n) + '</b>';
+      LS.del('histm_' + phone() + '_' + selMonth); loadHistory();
+    }).withFailureHandler(function (e) {
+      el('npMsg').textContent = '⚠️ ' + (e && e.message ? e.message : 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }).namePlace(phone(), {name: n, dev: device()});
+  }
   function send(c, gpsDiag, photo) {
     var d = device();
     d.phone = phone();
@@ -511,7 +523,14 @@
         msg('ok', '<b>✅ บันทึกแล้ว ' + r.time.slice(0, 5) + ' น.</b>' + (r.name ? ' · ' + esc(r.name) : '')
           + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
           + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป')
-          + (r.photo && d.photo ? '<img class="shotprev" src="' + d.photo + '" alt="รูปที่ส่ง">' : ''));
+          + (r.photo && d.photo ? '<img class="shotprev" src="' + d.photo + '" alt="รูปที่ส่ง">' : '')
+          + (r.askName ? '<div id="np" style="margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
+            + '<b>📍 ที่นี่คือที่ไหน?</b> <span style="font-size:13px;color:#64748b">(ไม่บังคับ · ช่วยให้ HR รู้ชื่อสถานที่)</span>'
+            + '<input id="npName" maxlength="60" placeholder="เช่น รพ.เวิลด์เมดิคอล / บ้านลูกค้า คุณสมชาย" '
+            + 'style="width:100%;box-sizing:border-box;margin-top:8px;padding:10px;font-size:16px;border:1px solid #99d5c9;border-radius:10px">'
+            + '<div style="display:flex;gap:8px;margin-top:8px"><button onclick="savePlace()" style="flex:1;padding:10px;border:0;border-radius:10px;background:#0f766e;color:#fff;font-size:16px;font-weight:bold">บันทึกชื่อ</button>'
+            + '<button onclick="el(\'np\').remove()" style="padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#475569;font-size:16px">ข้าม</button></div>'
+            + '<div id="npMsg" style="font-size:14px;margin-top:6px"></div></div>' : ''));
         btnState('done');
         loadHistory();
       }).withFailureHandler(function (e) {
