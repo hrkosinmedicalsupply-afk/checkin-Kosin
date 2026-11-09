@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = '7b57f327e7';
+  var BUILD = 'd36217946c';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -365,6 +365,7 @@
     box.style.display = 'flex';
     el('camMsg').textContent = 'กำลังเปิดกล้อง...'; el('camAlt').style.display = 'none';
     el('snap').disabled = true;
+    el('vid').style.display = ''; el('snap').parentNode.style.display = ''; el('flipLab').style.display = '';
     var front = camFacing === 'user';
     el('vid').style.transform = front ? 'scaleX(-1)' : 'none';  // กล้องหน้าแสดงแบบกระจก ดูง่าย
     el('flipLab').textContent = front ? 'กล้องหน้า · กด 🔄 เพื่อสลับเป็นกล้องหลัง' : 'กล้องหลัง · กด 🔄 เพื่อสลับเป็นกล้องหน้า';
@@ -384,9 +385,17 @@
   }
   // กล้องในหน้าเว็บเปิดไม่ได้ (เช่น iPhone เปิดจากไอคอนหน้าจอโฮม) → ใช้แอปกล้องของมือถือแทน
   function camFail(e) {
-    el('camMsg').innerHTML = 'กดปุ่มด้านล่าง เพื่อถ่ายรูปด้วยกล้องของมือถือ'
+    // iPhone เปิดจากไอคอนหน้าจอโฮมแบบเก่า (เต็มจอ ไม่มีแถบ Safari) → กล้องในหน้าเว็บใช้ไม่ได้ และถ่ายแล้วหน้าแอปมักเด้งกลับ
+    var oldIcon = window.navigator.standalone === true;
+    el('camMsg').innerHTML = (oldIcon
+      ? '⚠️ ตอนนี้เปิดจาก<b>ไอคอนหน้าจอโฮมแบบเก่า</b> — กล้องใช้ไม่ได้<br>'
+        + '<a href="' + esc(location.href) + '" target="_blank" style="color:#5eead4;font-weight:bold">👉 แตะที่นี่ เพื่อเปิดใน Safari</a>'
+        + '<br><span style="font-size:13px;color:#cbd5e1">แล้วลบไอคอนเก่าออก เพิ่มไอคอนใหม่จาก Safari (แชร์ → เพิ่มไปยังหน้าจอโฮม)</span><br><br>'
+      : '') + 'หรือกดปุ่มด้านล่าง เพื่อถ่ายรูปด้วยกล้องของมือถือ'
       + '<br><span style="font-size:13px;color:#cbd5e1">(ถ้ากดแล้วไม่มีอะไรขึ้น: อนุญาตให้ใช้กล้องในการตั้งค่าของมือถือ แล้วกด ✕ และกด SEND ใหม่)'
       + (e && e.name ? ' · ' + esc(e.name) : '') + '</span>';
+    if (!oldIcon) el('camMsg').innerHTML = el('camMsg').innerHTML.replace(/^หรือก/, 'ก');
+    el('vid').style.display = 'none'; el('snap').parentNode.style.display = 'none'; el('flipLab').style.display = 'none';
     el('snap').disabled = true;
     el('camFile').setAttribute('capture', camFacing === 'user' ? 'user' : 'environment');
     el('camAlt').style.display = 'block';
@@ -410,12 +419,22 @@
   }
   function filePhoto(inp) {
     var f = inp.files && inp.files[0]; if (!f) return;
-    var rd = new FileReader();
-    rd.onload = function () {
-      var im = new Image();
-      im.onload = function () { stampShot(im, im.naturalWidth, im.naturalHeight); inp.value = ''; };
-      im.src = rd.result;
+    var fail = function () {
+      inp.value = '';
+      el('camMsg').innerHTML = '⚠️ อ่านรูปไม่ได้ — กด 📷 ถ่ายใหม่อีกครั้ง<br><span style="font-size:13px;color:#cbd5e1">'
+        + '(iPhone: การตั้งค่า → กล้อง → รูปแบบ → เลือก "เข้ากันได้มากที่สุด")</span>';
     };
+    var im = new Image(), url = '';
+    try { url = URL.createObjectURL(f); } catch (e) {}
+    im.onload = function () {
+      try { stampShot(im, im.naturalWidth, im.naturalHeight); } catch (e) { fail(); return; }
+      inp.value = ''; if (url) URL.revokeObjectURL(url);
+    };
+    im.onerror = fail;
+    if (url) { im.src = url; return; }
+    var rd = new FileReader();  // เบราว์เซอร์เก่าไม่มี createObjectURL
+    rd.onload = function () { im.src = rd.result; };
+    rd.onerror = fail;
     rd.readAsDataURL(f);
   }
   function closeCam() {
