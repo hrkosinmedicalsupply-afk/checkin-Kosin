@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Kosin Time Stamp">
 <meta name="theme-color" content="#0f766e">
@@ -101,7 +100,7 @@
   .pl{color:#555;font-size:14px}
   #cam{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;
        gap:14px;background:rgba(0,0,0,.88);padding:16px}
-  #camMsg{color:#fff;font-size:17px;text-align:center;line-height:1.5}
+  #camMsg{color:#fff;font-size:17px;text-align:center;line-height:1.5;padding:0 54px}
   #camX{position:absolute;top:14px;right:14px;width:48px;height:48px;border-radius:50%;border:2px solid #fff;
         background:rgba(255,255,255,.15);color:#fff;font-size:24px;line-height:1;-webkit-tap-highlight-color:transparent}
   #vid{width:86vw;max-width:400px;aspect-ratio:3/4;object-fit:cover;border-radius:22px;transform:scaleX(-1);background:#111}
@@ -194,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = '599bc3bd6e';
+  var BUILD = 'a1fca5b4aa';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
