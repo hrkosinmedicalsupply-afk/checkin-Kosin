@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'd3c29aa012';
+  var BUILD = '2db3059b32';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -215,7 +215,9 @@
             set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
             del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }};
   var phoneEl = document.getElementById('phone');
-  var PRESET = (new URLSearchParams(location.search).get('p') || LS.get('lockedPhone') || '').replace(/\D/g, ''), EXEC = location.origin + location.pathname;
+  var RE = new URLSearchParams(location.search).get('re') === '1';
+  if (RE) { var _old = LS.get('lockedPhone') || ''; LS.del('lockedPhone'); if (_old) { LS.del('email_' + _old); LS.del('rt_' + _old); } }
+  var PRESET = (new URLSearchParams(location.search).get('p') || (RE ? '' : LS.get('lockedPhone')) || '').replace(/\D/g, ''), EXEC = location.origin + location.pathname;
   if (PRESET) LS.set('lockedPhone', PRESET);  // เติมโดย doGet: เบอร์จากลิงก์ส่วนตัว
   phoneEl.value = PRESET;
   var devId = LS.get('deviceId');
@@ -544,7 +546,8 @@
         }
         btnState('idle');
         if (/ไม่มีในรายชื่อ|อีเมลไม่ตรง/.test(m)) {  // ลงทะเบียนผิด → กลับไปลงทะเบียนใหม่
-          msg('err', '❌ ' + esc(m) + '<br><a href="' + EXEC + '">↩️ กลับไปลงทะเบียนใหม่</a>');
+          // ?re=1 = ล้างเบอร์ที่จำไว้ในเครื่อง → ขึ้นหน้าใส่อีเมล+เบอร์ใหม่ (เครื่องยังล็อกกับเบอร์ที่ระบบ ไม่เปลี่ยนเบอร์มั่วได้)
+          msg('err', '❌ ' + esc(m) + '<br><a href="' + EXEC + '?re=1">↩️ กลับไปลงทะเบียนใหม่ (แก้อีเมล)</a>');
           return;
         }
         msg('err', '❌ บันทึกไม่สำเร็จ: ' + esc(m) + '<br>ลองกดใหม่อีกครั้ง');
