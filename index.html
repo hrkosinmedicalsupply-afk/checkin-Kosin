@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = '2db3059b32';
+  var BUILD = 'faa7a4f311';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -493,7 +493,8 @@
     if (n.length < 2) { el('npMsg').textContent = 'พิมพ์ชื่อสถานที่ก่อน'; return; }
     el('npMsg').textContent = '⏳ กำลังบันทึก...';
     google.script.run.withSuccessHandler(function (r) {
-      el('np').innerHTML = (r && r.existing ? '📍 ที่นี่มีชื่ออยู่แล้ว: <b>' : '✅ บันทึกชื่อสถานที่แล้ว: <b>') + esc(r && r.name || n) + '</b>';
+      el('np').innerHTML = (r && r.existing ? '📍 ชื่อนี้ HR ตั้งไว้แล้ว: <b>' + esc(r.name) + '</b><br><span style="font-size:13px;color:#64748b">ถ้าไม่ถูก แจ้ง HR ให้แก้</span>'
+        : '✅ บันทึกชื่อสถานที่แล้ว: <b>' + esc(r && r.name || n) + '</b>');
       LS.del('histm_' + phone() + '_' + selMonth); loadHistory();
     }).withFailureHandler(function (e) {
       el('npMsg').textContent = '⚠️ ' + (e && e.message ? e.message : 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
@@ -526,8 +527,11 @@
           + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
           + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป')
           + (r.photo && d.photo ? '<img class="shotprev" src="' + d.photo + '" alt="รูปที่ส่ง">' : '')
-          + (r.askName ? '<div id="np" style="margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
-            + '<b>📍 ที่นี่คือที่ไหน?</b> <span style="font-size:13px;color:#64748b">(ไม่บังคับ · ช่วยให้ HR รู้ชื่อสถานที่)</span>'
+          + (r.canFix && !r.askName ? '<div id="npFix" style="margin-top:8px"><a href="#" onclick="el(\'np\').style.display=\'block\';el(\'npFix\').remove();el(\'npName\').focus();return false" '
+            + 'style="color:#0f766e;font-size:15px">✏️ ชื่อสถานที่ไม่ถูก? กดแก้ไข</a></div>' : '')
+          + (r.askName || r.canFix ? '<div id="np" style="' + (r.askName ? '' : 'display:none;') + 'margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
+            + (r.askName ? '<b>📍 ที่นี่คือที่ไหน?</b> <span style="font-size:13px;color:#64748b">(ไม่บังคับ · ช่วยให้ HR รู้ชื่อสถานที่)</span>'
+              : '<b>✏️ ชื่อที่ถูกต้องของที่นี่คือ?</b> <span style="font-size:13px;color:#64748b">(แทนชื่อ "' + esc(r.place || '') + '")</span>')
             + '<input id="npName" maxlength="60" placeholder="เช่น รพ.เวิลด์เมดิคอล / บ้านลูกค้า คุณสมชาย" '
             + 'style="width:100%;box-sizing:border-box;margin-top:8px;padding:10px;font-size:16px;border:1px solid #99d5c9;border-radius:10px">'
             + '<div style="display:flex;gap:8px;margin-top:8px"><button onclick="savePlace()" style="flex:1;padding:10px;border:0;border-radius:10px;background:#0f766e;color:#fff;font-size:16px;font-weight:bold">บันทึกชื่อ</button>'
