@@ -177,7 +177,7 @@
     var ok = function () {}, fail = function () {}, o = {
       withSuccessHandler: function (f) { ok = f; return o; },
       withFailureHandler: function (f) { fail = f; return o; }};
-    ['checkin', 'history', 'myPhoto', 'verifyStaff', 'whoAmI', 'requestFix', 'requestOT', 'namePlace'].forEach(function (n) {
+    ['checkin', 'history', 'myPhoto', 'verifyStaff', 'whoAmI', 'requestFix', 'requestOT', 'namePlace', 'choosePlace'].forEach(function (n) {
       o[n] = function () {
         // รอเกิน 45 วิ ถือว่าเน็ตค้าง → ยกเลิกแล้วให้หน้าแอปส่งใหม่ (รหัสคำขอเดิม ไม่บันทึกซ้ำ)
         var ac = window.AbortController ? new AbortController() : null;
@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'faa7a4f311';
+  var BUILD = 'f770bc3188';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -487,6 +487,32 @@
     msg('err', '⚠️ ' + how);
   }
 
+  // ใกล้กันหลายที่ → ปุ่มให้แตะเลือก (บันทึกเฉพาะครั้งนี้) · "ไม่ใช่ทั้งหมด" = พิมพ์ชื่อเอง
+  var CHOICES = [];
+  function chooseBox(list, cur) {
+    CHOICES = list;
+    var b = list.map(function (n, i) {
+      var on = n === cur;
+      return '<button onclick="pickPlace(' + i + ')" style="display:block;width:100%;text-align:left;margin-top:6px;padding:10px 12px;border-radius:10px;font-size:16px;'
+        + (on ? 'border:2px solid #0f766e;background:#ecfdf5;color:#0f766e;font-weight:bold' : 'border:1px solid #cbd5e1;background:#fff;color:#134e4a')
+        + '">' + (on ? '✓ ' : '') + esc(n) + '</button>';
+    }).join('');
+    return '<div id="pick" style="margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
+      + '<b>📍 ตอนนี้อยู่ที่ไหน?</b> <span style="font-size:13px;color:#64748b">(แถวนี้มีหลายที่ใกล้กัน · แตะที่ถูก)</span>' + b
+      + '<a href="#" onclick="el(\'pick\').remove();el(\'np\').style.display=\'block\';el(\'npName\').focus();return false" '
+      + 'style="display:block;margin-top:8px;color:#0f766e;font-size:15px">✏️ ไม่ใช่ทั้งหมด — พิมพ์ชื่อเอง</a>'
+      + '<div id="pickMsg" style="font-size:14px;margin-top:6px"></div></div>';
+  }
+  function pickPlace(i) {
+    var n = CHOICES[i];
+    el('pickMsg').textContent = '⏳ กำลังบันทึก...';
+    google.script.run.withSuccessHandler(function () {
+      el('pick').innerHTML = '✅ บันทึกสถานที่แล้ว: <b>' + esc(n) + '</b>';
+      LS.del('histm_' + phone() + '_' + selMonth); loadHistory();
+    }).withFailureHandler(function (e) {
+      el('pickMsg').textContent = '⚠️ ' + (e && e.message ? e.message : 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }).choosePlace(phone(), {name: n, dev: device()});
+  }
   // พนักงานตั้งชื่อจุดที่เพิ่งกด (ระบบยังไม่รู้ชื่อ) — ขึ้นในแอป/หน้า HR/รายงานทันที แบบมี "(พนักงานตั้ง)" ต่อท้าย
   function savePlace() {
     var n = el('npName').value.trim();
@@ -527,7 +553,8 @@
           + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
           + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป')
           + (r.photo && d.photo ? '<img class="shotprev" src="' + d.photo + '" alt="รูปที่ส่ง">' : '')
-          + (r.canFix && !r.askName ? '<div id="npFix" style="margin-top:8px"><a href="#" onclick="el(\'np\').style.display=\'block\';el(\'npFix\').remove();el(\'npName\').focus();return false" '
+          + (r.choices && r.choices.length > 1 ? chooseBox(r.choices, r.place) : '')
+          + (r.canFix && !r.askName && !(r.choices && r.choices.length > 1) ? '<div id="npFix" style="margin-top:8px"><a href="#" onclick="el(\'np\').style.display=\'block\';el(\'npFix\').remove();el(\'npName\').focus();return false" '
             + 'style="color:#0f766e;font-size:15px">✏️ ชื่อสถานที่ไม่ถูก? กดแก้ไข</a></div>' : '')
           + (r.askName || r.canFix ? '<div id="np" style="' + (r.askName ? '' : 'display:none;') + 'margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
             + (r.askName ? '<b>📍 ที่นี่คือที่ไหน?</b> <span style="font-size:13px;color:#64748b">(ไม่บังคับ · ช่วยให้ HR รู้ชื่อสถานที่)</span>'
