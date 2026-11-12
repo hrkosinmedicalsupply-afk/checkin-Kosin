@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'f770bc3188';
+  var BUILD = 'af7610ddda';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -846,8 +846,22 @@
       + '<span><i class="d-one"></i>บันทึกครั้งเดียว</span><span><i class="d-off"></i>เสาร์-อาทิตย์</span>'
       + '<span><i class="d-hol"></i>วันหยุด</span><span><i class="d-leave"></i>วันลา</span></div>'
       + '<div class="sum">' + monthLabel(selMonth) + ' · มาทำงาน <b>' + days.filter(function (x) { return x.items.length; }).length + '</b> วัน · กดรวม <b>'
-      + total + '</b> ครั้ง' + monthSum(days) + '</div><div id="dayd"></div>';
+      + total + '</b> ครั้ง' + monthSum(days) + '</div>' + otList(days) + '<div id="dayd"></div>';
     renderDay();
+  }
+  // รายการ OT ที่ขอในเดือนที่เลือก (พนักงานขอให้ดูย้อนหลังได้ · เลื่อนเดือนด้วยลูกศรปฏิทิน) · แตะ = เปิดวันนั้น
+  function otList(days) {
+    var rows = [];
+    days.forEach(function (x) { (x.ot || []).forEach(function (q) { rows.push([x.date, q]); }); });
+    if (!rows.length) return '';
+    rows.sort(function (a, b) { return a[0] < b[0] ? 1 : -1; });
+    return '<div class="sum" style="margin-top:8px"><b>🕒 OT ที่ขอในเดือนนี้ (' + rows.length + ')</b>'
+      + rows.map(function (r) {
+        var p = r[0].split('-');
+        return '<div onclick="pickDay(\'' + r[0] + '\')" style="cursor:pointer;margin-top:6px">'
+          + '<b>' + (+p[2]) + ' ' + ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][+p[1] - 1]
+          + '</b> ' + otTags([r[1]]) + '</div>';
+      }).join('') + '</div>';
   }
   function monthSum(days) {  // สรุปทั้งเดือน: สายกี่ครั้ง รวมกี่นาที · OT รวม (สายรวมเกิน 150 นาที = ใบเตือนตามกฎบริษัท)
     var n = 0, m = 0, ot = 0, half = 0;
