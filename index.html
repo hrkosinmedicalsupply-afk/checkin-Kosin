@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'af7610ddda';
+  var BUILD = '22aecc25ed';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -309,7 +309,7 @@
       return;
     }
     btnState('busy');
-    pending = null; shot = null; camCancelled = false;
+    pending = null; shot = null; camCancelled = false; gpsErr = '';
     openCam();  // ถ่ายเซลฟี่ไปพร้อมกับที่อ่าน GPS
     msg('warn', '⏳ กำลังหาตำแหน่ง GPS... (รอสักครู่ อย่าปิดหน้านี้)');
     if (!navigator.geolocation) { gpsFail({code: 0}); return; }
@@ -416,7 +416,9 @@
     g.fillText('Kosin Time Stamp', 10, h - 25); g.font = '15px sans-serif'; g.fillText(txt, 10, h - 7);
     shot = cv.toDataURL('image/jpeg', 0.6);
     closeCam();
-    msg('warn', '✅ ถ่ายรูปแล้ว · ⏳ กำลังหาตำแหน่ง GPS...');
+    // GPS ล้มเหลวไปก่อนถ่ายรูปเสร็จ → อย่าขึ้น "กำลังหา" ค้าง ให้บอกตรง ๆ ว่ากด "ส่งแบบไม่มีพิกัด" ได้
+    if (gpsErr) msg('err', '✅ ถ่ายรูปแล้ว · ⚠️ ' + gpsErr + '<br><b>บันทึกเวลาตอนนี้: กด "ส่งแบบไม่มีพิกัด" ด้านบน</b>');
+    else msg('warn', '✅ ถ่ายรูปแล้ว · ⏳ กำลังหาตำแหน่ง GPS...');
     trySend();
   }
   function filePhoto(inp) {
@@ -478,13 +480,15 @@
     }
   }
 
+  var gpsErr = '';
   function gpsFail(e) {
     btnState('idle');
     el('nogps').style.display = 'block';
+    gpsErr = e.code === 1 ? 'มือถือไม่อนุญาตให้ใช้ตำแหน่ง (รหัส 1)' : 'หาตำแหน่งไม่เจอ (รหัส ' + (e.code || 0) + ')';
     var how = e.code === 1
       ? 'มือถือ<b>ไม่อนุญาต</b>ให้หน้านี้ใช้ตำแหน่ง<br>1) เปิด <b>ตำแหน่ง/Location</b> ในมือถือ<br>2) กดรูป 🔒 หน้าลิงก์ → สิทธิ์ → <b>ตำแหน่ง: อนุญาต</b><br>3) กด SEND ใหม่'
       : 'หาตำแหน่งไม่เจอ — ออกไปใกล้หน้าต่าง/ที่โล่ง เปิด Location และปิดโหมดประหยัดแบต แล้วกด SEND ใหม่';
-    msg('err', '⚠️ ' + how);
+    msg('err', '⚠️ ' + how + '<br><b>หรือกด "ส่งแบบไม่มีพิกัด" ด้านบน เพื่อบันทึกเวลาตอนนี้เลย</b>');
   }
 
   // ใกล้กันหลายที่ → ปุ่มให้แตะเลือก (บันทึกเฉพาะครั้งนี้) · "ไม่ใช่ทั้งหมด" = พิมพ์ชื่อเอง
