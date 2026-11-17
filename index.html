@@ -125,6 +125,7 @@
 </style></head><body><div class="wrap">
   <div class="card">
     <h1>Kosin Time Stamp</h1>
+    <div id="todayTxt" style="text-align:center;font-size:20px;font-weight:bold;color:#134e4a;margin:6px 0 2px"></div>
     <div class="sub">กดปุ่มด้านล่างเพื่อบันทึกเวลา (ระบบจะขอตำแหน่งของคุณ)</div>
     <div class="who" id="who"></div>
     <div id="nameBox"><input id="em" type="email" inputmode="email" maxlength="80" autocomplete="email" placeholder="อีเมล (ที่แจ้ง HR ไว้)"></div>
@@ -196,7 +197,7 @@
   }});
 </script>
 <script>
-  var BUILD = '95180794ae';
+  var BUILD = '9dd13f1a3f';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -967,6 +968,12 @@
     }
     el('dayd').innerHTML = '<div class="day">' + html + '</div>';
   }
+  // วันที่วันนี้ด้านบน (HR 2026-11-17) · เปิดแอปค้างข้ามเที่ยงคืนก็เปลี่ยนเอง
+  function showToday() {
+    var n = new Date();
+    el('todayTxt').textContent = '📅 วัน' + DOW[n.getDay()] + 'ที่ ' + n.getDate() + ' ' + MONF[n.getMonth()] + ' ' + (n.getFullYear() + 543);
+  }
+  showToday(); setInterval(showToday, 60000);
   showWho();
   loadHistory();
 </script></body></html>
