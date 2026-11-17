@@ -196,7 +196,7 @@
   }});
 </script>
 <script>
-  var BUILD = '39bd25c441';
+  var BUILD = '95180794ae';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -618,8 +618,14 @@
   }
   // ---- ขอแก้ไขเวลา (ลืมกดเข้า/ออก) → HR อนุมัติในชีต ----
   var fxK = 'in', fxImg = '';
+  // กะของคนนี้ (แม่บ้าน/รปภ. 07:00–17:00) — เอาจากผลรายวันที่เซิร์ฟเวอร์คิดให้ (วันทำงานที่ไม่ใช่หน้างาน)
+  function myShift() {
+    var s = null;
+    lastDays.forEach(function (d) { if (!s && d.r && d.r.work && !d.r.field && d.r['in']) s = [d.r['in'], d.r.out]; });
+    return s || [CAL.start, CAL.end];
+  }
   function fxInTime() {
-    var p = CAL.start.split(':'), m = +p[0] * 60 + +p[1] + (CAL.forgotLate || 10);
+    var p = myShift()[0].split(':'), m = +p[0] * 60 + +p[1] + (CAL.forgotLate || 10);
     return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
   }
   function fxKind(k) {
@@ -629,8 +635,8 @@
     el('fxRule').innerHTML = k === 'in'
       ? (came && came > base
         ? 'มาสาย → นับตามเวลาที่มาจริง<br>เวลาเข้าจะเป็น <b>' + came + ' น.</b>'
-        : 'ลืมกดเข้าแต่มาก่อน ' + CAL.start + ' น. (ตามกฎบริษัท)<br>ปรับเวลาเข้าเป็น <b>' + base + ' น.</b> (นับสาย 10 นาที)')
-      : 'ตามกฎบริษัท: ลืมกดออก<br>ปรับเวลาออกเป็น <b>' + CAL.end + ' น.</b> (ไม่เกิน 2 ครั้ง/เดือน)';
+        : 'ลืมกดเข้าแต่มาก่อน ' + myShift()[0] + ' น. (ตามกฎบริษัท)<br>ปรับเวลาเข้าเป็น <b>' + base + ' น.</b> (นับสาย 10 นาที)')
+      : 'ตามกฎบริษัท: ลืมกดออก<br>ปรับเวลาออกเป็น <b>' + myShift()[1] + ' น.</b> (ไม่เกิน 2 ครั้ง/เดือน)';
   }
   function fxOpen(iso) {
     var p = iso.split('-');
@@ -923,7 +929,7 @@
       ? '<div class="tl"><i class="d-shift"></i><div><b>กะทำงาน</b>'
         + (CAL.work && CAL.work[selDay] ? ' <span class="muted">· เสาร์ทำงาน: ' + esc(CAL.work[selDay]) + '</span>' : '')
         + (x && x.r && x.r.field ? '<br>🚗 วันนี้ทำงานหน้างาน: ' + x.r['in'] + ' – ' + x.r.out
-          : '<br>🕗 ' + CAL.start + ' – ' + CAL.end)
+          : '<br>🕗 ' + myShift()[0] + ' – ' + myShift()[1])
         + ' &nbsp;·&nbsp; 🍴 พัก ' + CAL.brk + '</div></div>'
       : '<div class="tl"><i class="' + (ty === 'hol' ? 'd-hol' : 'd-off') + '"></i><div><b>'
         + (ty === 'hol' ? 'วันหยุด · ' + esc(CAL.hol[selDay]) : 'วันหยุด (เสาร์-อาทิตย์)') + '</b></div></div>';
