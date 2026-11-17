@@ -193,7 +193,7 @@
   }});
 </script>
 <script>
-  var BUILD = 'ded573777a';
+  var BUILD = '8d9ea98256';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
@@ -557,10 +557,10 @@
           + '<br>' + (r.gps ? '📍 ' + esc(r.place || 'บันทึกพิกัดเรียบร้อย') : '⚠️ ครั้งนี้ไม่มีพิกัด')
           + (r.photo ? ' · 📸 มีรูป' : ' · ⚠️ ไม่มีรูป')
           + (r.photo && d.photo ? '<img class="shotprev" src="' + d.photo + '" alt="รูปที่ส่ง">' : '')
-          + (r.choices && r.choices.length > 1 ? chooseBox(r.choices, r.place) : '')
-          + (r.canFix && !r.askName && !(r.choices && r.choices.length > 1) ? '<div id="npFix" style="margin-top:8px"><a href="#" onclick="el(\'np\').style.display=\'block\';el(\'npFix\').remove();el(\'npName\').focus();return false" '
+          + (r.choices && r.choices.length ? chooseBox(r.choices, r.place) : '')
+          + (r.canFix && !r.askName && !(r.choices && r.choices.length) ? '<div id="npFix" style="margin-top:8px"><a href="#" onclick="el(\'np\').style.display=\'block\';el(\'npFix\').remove();el(\'npName\').focus();return false" '
             + 'style="color:#0f766e;font-size:15px">✏️ ชื่อสถานที่ไม่ถูก? กดแก้ไข</a></div>' : '')
-          + (r.askName || r.canFix ? '<div id="np" style="' + (r.askName ? '' : 'display:none;') + 'margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
+          + (r.askName || r.canFix ? '<div id="np" style="' + (r.askName && !(r.choices && r.choices.length) ? '' : 'display:none;') + 'margin-top:10px;background:#fff;border:2px solid #99d5c9;border-radius:12px;padding:10px;color:#134e4a">'
             + (r.askName ? '<b>📍 ที่นี่คือที่ไหน?</b> <span style="font-size:13px;color:#64748b">(ไม่บังคับ · ช่วยให้ HR รู้ชื่อสถานที่)</span>'
               : '<b>✏️ ชื่อที่ถูกต้องของที่นี่คือ?</b> <span style="font-size:13px;color:#64748b">(แทนชื่อ "' + esc(r.place || '') + '")</span>')
             + '<input id="npName" maxlength="60" placeholder="เช่น รพ.เวิลด์เมดิคอล / บ้านลูกค้า คุณสมชาย" '
