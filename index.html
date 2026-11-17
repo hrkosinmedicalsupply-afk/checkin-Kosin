@@ -5,6 +5,9 @@
 <meta name="apple-mobile-web-app-title" content="Kosin Time Stamp">
 <meta name="theme-color" content="#0f766e">
 <title>Kosin Time Stamp</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
 <style>
   *{box-sizing:border-box}
@@ -193,7 +196,7 @@
   }});
 </script>
 <script>
-  var BUILD = '8d9ea98256';
+  var BUILD = '39bd25c441';
   function checkUpdate() {
     try {
       fetch(location.pathname + '?_=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.text(); })
